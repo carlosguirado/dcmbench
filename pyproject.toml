@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dcmbench"
+version = "0.1.2"
+description = "A comprehensive benchmarking framework for discrete choice models"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Carlos Guirado", email = "your.email@example.com"},
+]
+maintainers = [
+    {name = "Carlos Guirado", email = "your.email@example.com"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+]
+keywords = ["discrete choice", "benchmarking", "transportation", "econometrics", "machine learning"]
+dependencies = [
+    "numpy>=1.19.0",
+    "pandas>=1.2.0",
+    "scikit-learn>=0.24.0",
+    "matplotlib>=3.3.0",
+    "seaborn>=0.11.0",
+    "biogeme>=3.2.0",
+    "requests>=2.25.0",
+    "scipy>=1.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
+    "black>=22.0",
+    "flake8>=4.0",
+    "mypy>=0.900",
+    "sphinx>=4.0",
+    "sphinx-rtd-theme>=1.0",
+]
+pytorch = [
+    "torch>=1.10.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/carlosguirado/dcmbench"
+Documentation = "https://dcmbench.readthedocs.io"
+Repository = "https://github.com/carlosguirado/dcmbench.git"
+"Bug Tracker" = "https://github.com/carlosguirado/dcmbench/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dcmbench*"]
+exclude = ["tests*", "examples*", "docs*", "Aug25_test*", "notebook_env*", "pytorch_env*", "test_env*"]
+
+[tool.setuptools.package-data]
+dcmbench = ["datasets/metadata.json"]

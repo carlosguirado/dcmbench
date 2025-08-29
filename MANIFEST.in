@@ -1,0 +1,63 @@
+# Include documentation and license
+include README.md
+include LICENSE
+
+# Include essential package data
+include dcmbench/datasets/metadata.json
+
+# Exclude all test and example directories
+prune tests
+prune examples
+prune Aug25_test
+prune docs
+prune notebook_env
+prune pytorch_env
+prune test_env
+
+# Exclude version control and cache files
+global-exclude .git*
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude __pycache__
+global-exclude .DS_Store
+global-exclude *.swp
+global-exclude *~
+global-exclude .pytest_cache
+
+# Exclude Jupyter notebook checkpoints
+global-exclude .ipynb_checkpoints
+
+# Exclude build artifacts
+global-exclude *.egg-info
+prune build
+prune dist
+
+# Exclude Biogeme output files
+global-exclude *.html
+global-exclude *.pickle
+global-exclude *.iter
+
+# Exclude image files from root
+global-exclude *.png
+global-exclude *.jpg
+global-exclude *.jpeg
+global-exclude *.gif
+
+# Exclude backup files
+global-exclude *.backup
+
+# Exclude CSV and compressed data files (users should fetch via API)
+global-exclude *.csv
+global-exclude *.csv.gz
+global-exclude *.zip
+
+# Exclude environment and virtual env directories
+prune venv
+prune env
+prune .env
+prune *_env
+
+# Exclude IDE files
+global-exclude .vscode
+global-exclude .idea
+global-exclude *.iml

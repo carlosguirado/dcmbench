@@ -1,0 +1,64 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+*_env/
+test_env/
+pytorch_env/
+notebook_env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Biogeme output files
+*.html
+*.pickle
+*.iter
+
+# Model output files
+*.log
+*.png
+
+# Backup files
+*.backup
+
+# Local test directories
+Aug25_test/
+examples/
+tests/
+
+# Individual parameter files
+individual_params_*.pickle
