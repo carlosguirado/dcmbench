@@ -1,16 +1,4 @@
-# DCMBench Tutorials
+# Tutorials
 
-This directory will contain tutorials and examples for using the DCMBench package.
-
-## Coming Soon
-
-- Getting Started with DCMBench
-- Loading and Exploring Datasets
-- Running Model Benchmarks
-- Comparing Different Model Types
-- Sensitivity Analysis
-- Value of Time (VOT) Analysis
-- Custom Model Implementation
-- Advanced Benchmarking Techniques
-
-Check back for updates!
+- [`internal_validation_swissmetro.py`](internal_validation_swissmetro.py) — k-fold CV and prediction-error bootstrap for Swissmetro MNL.
+- [`internal_validation_mxl_swissmetro.py`](internal_validation_mxl_swissmetro.py) — k-fold CV for a hand-built Swissmetro mixed logit (MXL) model via `FunctionModelFitter`, since `fitter_from_spec` cannot build genuine random-coefficient models.
