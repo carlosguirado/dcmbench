@@ -10,6 +10,13 @@ You can install DCMBench using pip:
 pip install dcmbench
 ```
 
+### What's new in 0.1.3
+
+- **Internal validation** (`dcmbench.validation`): k-fold cross-validation and
+  prediction-error bootstrap (OOB + 0.632) with re-estimation on each fold/draw.
+  See the [Internal Validation](#internal-validation-cross-validation-and-bootstrap)
+  section below and `CHANGELOG.md`.
+
 ## What to use when
 
 | Need | Use |
@@ -75,39 +82,32 @@ See `tutorials/internal_validation_swissmetro.py` for a runnable example.
 **Notes:**
 - Each fold/draw is a full estimation (can be slow for mixed logit).
 - Bootstrap here estimates **out-of-sample predictive fit**, not parameter covariance.
-- `choice_mapping` is `{CHOICE column code -> predict_probabilities() column name}`.
-  These two label systems aren't guaranteed to match (e.g. `CHOICE` could store
-  strings while probability columns are integers); `{1: 1, 2: 2, 3: 3}` above is
-  an identity map because Swissmetro's `CHOICE` codes and
-  `UniversalBiogemeAdapter`'s probability-column names both happen to use the
-  same numeric alternative-ID convention (1/2/3 = Train/Swissmetro/Car), not
-  because the mapping is inherently redundant.
-- MNL/NL are the supported paths for `fitter_from_spec`/`BiogemeSpecFitter`.
-  **Mixed logit (MXL) specs are not supported through the JSON-spec path**:
-  `build_model_from_spec` does not wire `random_parameters` into the utility
-  formulas (no `bioDraws` are created), so specs with `model_type: "MXL"` and a
-  non-empty `random_parameters` raise a clear error, and specs with an empty
-  `random_parameters` are silently estimated as plain MNL (with a warning).
-  **To validate a genuine mixed logit model, use `FunctionModelFitter`** to wrap
-  a hand-built Biogeme model with explicit `bioDraws` (`InternalValidator` is
-  model-agnostic and works with any `build_fn`/`predict_fn` pair -- the same
-  `build_*`/`predict_*` pattern used for MXL in `dcm-internal-validation`):
+- `choice_mapping` maps `{CHOICE code -> probability column name}` (identity
+  `{1: 1, 2: 2, 3: 3}` when both use the same alternative IDs).
+- **MNL/NL:** use `fitter_from_spec`. **MXL:** JSON specs cannot build real
+  `bioDraws` models — use `FunctionModelFitter` with a hand-built model
+  (see `tutorials/internal_validation_mxl_swissmetro.py`):
 
   ```python
   from dcmbench.validation import FunctionModelFitter, InternalValidator
 
   fitter = FunctionModelFitter(
-      build_fn=build_mxl,               # (train_df) -> Biogeme estimation results
-      predict_fn=predict_mxl,           # (results, data) -> probabilities DataFrame
-      null_loglikelihood_fn=null_loglikelihood_mxl,  # (results, data) -> float
+      build_fn=build_mxl,
+      predict_fn=predict_mxl,
+      null_loglikelihood_fn=null_loglikelihood_mxl,
       choice_column="CHOICE",
   )
-  validator = InternalValidator(fitter, choice_column="CHOICE", choice_mapping={1: 1, 2: 2, 3: 3})
+  validator = InternalValidator(
+      fitter,
+      choice_column="CHOICE",
+      choice_mapping={1: 1, 2: 2, 3: 3},
+      group_column="ID",
+  )
   cv = validator.cross_validate(data, n_splits=5)
   ```
 
-  See `tutorials/internal_validation_mxl_swissmetro.py` for a full runnable
-  example (Swissmetro MXL with a normally-distributed time coefficient).
+  `build_fn` and `predict_fn` must use the same utility / nesting / draws
+  structure (see the MXL tutorial for a shared-helpers pattern).
 
 ### Advanced Analysis Capabilities
 

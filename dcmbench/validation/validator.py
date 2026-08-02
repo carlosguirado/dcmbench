@@ -77,6 +77,33 @@ class InternalValidator:
         self.clearness_threshold = clearness_threshold
         self.on_error = on_error
         self.verbose = verbose
+        self._panel_warning_emitted = False
+
+    def _warn_if_possible_panel_without_groups(self, data: pd.DataFrame) -> None:
+        """Warn once when group_column is omitted but data looks like repeated choices."""
+        if self.group_column is not None or self._panel_warning_emitted:
+            return
+        # Common individual / case IDs in DCMBench datasets (Swissmetro ID,
+        # ModeCanada case). Only warn when the column exists *and* has repeated
+        # values (true panel / multi-observation cases).
+        candidates = ("ID", "id", "case", "CASE", "person_id", "PERSON_ID")
+        for col in candidates:
+            if col not in data.columns:
+                continue
+            n_unique = data[col].nunique(dropna=True)
+            if n_unique < len(data):
+                warnings.warn(
+                    f"group_column was not set, but '{col}' looks like a panel / "
+                    f"case identifier ({n_unique} unique values in {len(data)} rows). "
+                    "Without group_column, observations from the same individual "
+                    "can be split across train and test folds, which optimistically "
+                    f"biases out-of-sample scores. Pass group_column='{col}' to keep "
+                    "all rows for each group together.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+                self._panel_warning_emitted = True
+                return
 
     def _resolve_choice_mapping(self, data: pd.DataFrame) -> Dict[Any, Any]:
         if self.choice_mapping is not None:
@@ -174,6 +201,7 @@ class InternalValidator:
         if self.group_column is not None and self.group_column not in data.columns:
             raise ValueError(f"group_column '{self.group_column}' not found in data")
 
+        self._warn_if_possible_panel_without_groups(data)
         choice_mapping = self._resolve_choice_mapping(data)
         rows: List[Dict[str, Any]] = []
 
@@ -289,6 +317,7 @@ class InternalValidator:
         if self.group_column is not None and self.group_column not in data.columns:
             raise ValueError(f"group_column '{self.group_column}' not found in data")
 
+        self._warn_if_possible_panel_without_groups(data)
         choice_mapping = self._resolve_choice_mapping(data)
         n = len(data)
         rows: List[Dict[str, Any]] = []

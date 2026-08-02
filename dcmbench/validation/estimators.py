@@ -139,22 +139,13 @@ class BiogemeSpecFitter:
             random_params = spec.get("random_parameters", {})
             if random_params:
                 raise NotImplementedError(
-                    "BiogemeSpecFitter/fitter_from_spec cannot build mixed logit "
-                    "(MXL) models with random taste parameters: "
-                    "dcmbench.model_specifications.build_model_from_spec does not "
-                    "wire 'random_parameters' into the utility formulas (no "
-                    "bioDraws are created), so Biogeme raises 'The argument of "
-                    "MonteCarlo must contain a bioDraws' as soon as the model is "
-                    "constructed. Cross-validation/bootstrap of a real MXL model "
-                    "currently requires building the Biogeme model yourself (with "
-                    "explicit bioDraws) and wrapping it in a custom ModelFitter, "
-                    "rather than using fitter_from_spec."
+                    "fitter_from_spec cannot build MXL with random_parameters "
+                    "(no bioDraws). Use FunctionModelFitter with a hand-built "
+                    "model; see tutorials/internal_validation_mxl_swissmetro.py."
                 )
             warnings.warn(
-                "Model spec declares model_type='MXL' but has no "
-                "'random_parameters'; build_model_from_spec will silently "
-                "estimate a plain MNL for this spec. Set random_parameters or "
-                "use a custom ModelFitter for genuine mixed logit.",
+                "model_type='MXL' but no random_parameters; this will estimate "
+                "plain MNL. Use FunctionModelFitter for genuine mixed logit.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -172,11 +163,14 @@ class BiogemeSpecFitter:
         database = db.Database(self.database_name, train_df.copy())
         model = build_model_from_spec(self.spec, database)
 
-        # Expose structure under the names UniversalBiogemeAdapter prefers.
+        # Expose utilities/availability/nests for UniversalBiogemeAdapter OOS predict
         if hasattr(model, "_utilities"):
             model._dcmbench_utilities = model._utilities
         if hasattr(model, "_availabilities"):
             model._dcmbench_availability = model._availabilities
+        if getattr(model, "_nests", None) is not None:
+            model._dcmbench_nests = model._nests
+            model.nests = model._nests
 
         if self.quiet:
             for attr, value in (
@@ -261,52 +255,19 @@ class _FunctionFittedModel:
 
 class FunctionModelFitter:
     """
-    ModelFitter built from user-supplied build/predict functions.
+    ModelFitter from user-supplied build/predict callables.
 
-    Use this for models the JSON-spec path (``BiogemeSpecFitter``/
-    ``fitter_from_spec``) cannot build --- most importantly **mixed logit
-    (MXL)** with genuine random taste parameters. ``build_model_from_spec``
-    only substitutes plain (non-random) ``Beta`` objects into utility
-    formulas, so it cannot express a ``bioDraws``-based random coefficient;
-    a hand-written Biogeme model is required instead. This mirrors the
-    ``build_*``/``predict_*`` function-pair pattern used for MXL models in
-    the ``dcm-internal-validation`` experiments repo.
-
-    ``InternalValidator`` itself does not care how a ``FittedModel`` is
-    produced -- it only calls ``fitter(train_df)`` and expects back an
-    object with ``predict_probabilities``, ``n_params``, ``converged``, and
-    ``null_loglikelihood``. ``FunctionModelFitter`` is just a thin adapter
-    that packages plain functions into that protocol.
+    Use when ``fitter_from_spec`` cannot build the model (notably MXL with
+    ``bioDraws``). See ``tutorials/internal_validation_mxl_swissmetro.py``.
 
     Parameters
     ----------
     build_fn : callable(train_df) -> results
-        Estimate the model on the training subset (e.g. construct a Biogeme
-        model with explicit ``bioDraws`` and call ``.estimate()``). Called
-        once per fold/bootstrap draw. ``results`` can be any object; it is
-        passed through unchanged to the other callables.
-    predict_fn : callable(results, data) -> pd.DataFrame
-        Predict choice probabilities on ``data`` given ``results`` (e.g.
-        rebuild the same random-coefficient expression, wrap it in
-        ``MonteCarlo``, and call ``BIOGEME(...).simulate(results.get_beta_values())``
-        on a database built from ``data``). Must return columns resolvable
-        via ``choice_mapping``.
+    predict_fn : callable(results, data) -> DataFrame of probabilities
     null_loglikelihood_fn : callable(results, data) -> float, optional
-        Availability-aware null LL on ``data`` (e.g.
-        ``biogeme.calculate_null_loglikelihood(av)`` on a fresh BIOGEME
-        object built from ``data``). If omitted, falls back to an
-        equal-share null LL with a warning.
     n_params_fn : callable(results) -> int, optional
-        Defaults to ``results.data.nparam`` / ``len(results.get_beta_values())``.
     converged_fn : callable(results) -> bool, optional
-        Defaults to Biogeme's usual convergence-flag locations, else ``True``.
     choice_column : str
-
-    Examples
-    --------
-    See ``tutorials/internal_validation_mxl_swissmetro.py`` for a full,
-    runnable mixed-logit example (build/predict functions with explicit
-    ``bioDraws``, plugged into ``InternalValidator.cross_validate``).
     """
 
     def __init__(

@@ -8,14 +8,8 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 import numpy as np
 import pandas as pd
 
-# {CHOICE column code -> predict_probabilities() column name}. These two
-# label systems aren't guaranteed to match: CHOICE might store integers or
-# strings, and probability columns are whatever the model/adapter names them.
-# E.g. for Swissmetro (CHOICE 1/2/3 = Train/Swissmetro/Car) with
-# UniversalBiogemeAdapter (which names probability columns after the same
-# numeric alternative IDs), this is the identity map {1: 1, 2: 2, 3: 3}; if
-# CHOICE instead stored "TRAIN"/"SM"/"CAR", it would be {"TRAIN": 1, "SM": 2,
-# "CAR": 3}.
+# {CHOICE code -> probability column name}. Identity {1:1,2:2,3:3} when both
+# use the same alternative IDs; use e.g. {"TRAIN": 1, ...} if CHOICE is strings.
 ChoiceMapping = Mapping[Any, Any]
 
 PERCENT_METRICS = (

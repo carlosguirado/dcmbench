@@ -1,5 +1,7 @@
 """Unit tests for dcmbench.validation (synthetic data; no Biogeme required)."""
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -17,16 +19,7 @@ from dcmbench.validation.validator import InternalValidator
 
 
 def _synthetic_choice_data(n=60, seed=0):
-    """
-    3-alternative synthetic panel. Columns 1/2/3 hold each alternative's
-    "predicted" probability, deliberately named to match the CHOICE codes
-    (1/2/3) -- i.e. this fakes a model whose predict_probabilities() output
-    columns already coincide with the CHOICE encoding. That's why tests
-    below use choice_mapping={1: 1, 2: 2, 3: 3} (an identity map: {CHOICE
-    code: probability column name}), not because choice_mapping is always
-    a no-op -- see tutorials/internal_validation_swissmetro.py for a comment
-    on when the two sides of the mapping differ.
-    """
+    """Synthetic 3-alt panel; prob columns 1/2/3 match CHOICE codes."""
     rng = np.random.default_rng(seed)
     probs = rng.dirichlet(np.ones(3), size=n)
     choice = np.array([rng.choice([1, 2, 3], p=p) for p in probs])
@@ -231,7 +224,7 @@ def test_biogeme_spec_fitter_warns_on_mxl_without_random_parameters():
         "availability": {},
         "data_mapping": {"choice_variable": "CHOICE", "variables": {}},
     }
-    with pytest.warns(UserWarning, match="silently estimate a plain MNL"):
+    with pytest.warns(UserWarning, match="plain MNL"):
         BiogemeSpecFitter(spec, choice_column="CHOICE")
 
 
@@ -284,13 +277,7 @@ def _synthetic_two_alt_data(n=120, seed=7):
 
 
 def test_biogeme_spec_fitter_real_mnl_cv_and_bootstrap_happy_path():
-    """
-    Real end-to-end estimation (not a dummy/mock fitter): fitter_from_spec ->
-    real Biogeme MNL estimation -> InternalValidator.cross_validate/bootstrap,
-    on data with genuine behavioral signal. This is the "happy path" that the
-    tutorials exercise manually but that wasn't previously covered by an
-    automated regression test.
-    """
+    """End-to-end Biogeme MNL via fitter_from_spec + CV/bootstrap."""
     pytest.importorskip("biogeme")
     from dcmbench.validation.estimators import fitter_from_spec
 
@@ -305,8 +292,6 @@ def test_biogeme_spec_fitter_real_mnl_cv_and_bootstrap_happy_path():
     assert cv.n_failed == 0
     assert cv.n_not_converged == 0
     assert np.isfinite(cv.detail["rho_sq"]).all()
-    # With real signal and n=120, folds should show clearly-better-than-chance
-    # fit, not just "some finite number".
     assert cv.summary()["rho_sq"].iloc[0] > 0.05
 
     boot = validator.bootstrap(data, n_bootstrap=3)
@@ -377,14 +362,7 @@ _FOUR_ALT_SPEC = {
 
 
 def test_biogeme_spec_fitter_generalizes_to_four_alternatives_with_partial_availability():
-    """
-    Structural smoke test (modeled on ModeCanada's shape: 4 alternatives,
-    partial availability) verified manually against the real ModeCanada
-    dataset in-session (rho_sq ~0.4, matching known literature values for a
-    basic ModeCanada MNL). This synthetic version keeps that structural
-    coverage -- 4 alternatives, non-trivial availability -- in the fast,
-    network-free automated test suite.
-    """
+    """4-alt MNL with partial availability via fitter_from_spec."""
     pytest.importorskip("biogeme")
     from dcmbench.validation.estimators import fitter_from_spec
 
@@ -533,3 +511,136 @@ def test_on_error_raise_propagates_real_exceptions():
     )
     with pytest.raises(RuntimeError, match="simulated estimation failure"):
         validator.cross_validate(data, n_splits=3)
+
+
+def test_panel_like_data_warns_when_group_column_omitted():
+    """Repeated-choice / panel data without group_column should warn once."""
+    data = _synthetic_choice_data(n=30)  # has ID with 3 rows per person
+    template = data[[1, 2, 3]]
+
+    def fitter(train_df):
+        return _DummyFitted(template)
+
+    validator = InternalValidator(
+        fitter,
+        choice_column="CHOICE",
+        choice_mapping={1: 1, 2: 2, 3: 3},
+        random_state=0,
+    )
+    with pytest.warns(UserWarning, match="group_column was not set"):
+        validator.cross_validate(data, n_splits=3)
+
+
+def test_panel_warning_suppressed_when_group_column_set():
+    data = _synthetic_choice_data(n=30)
+    template = data[[1, 2, 3]]
+
+    def fitter(train_df):
+        return _DummyFitted(template)
+
+    validator = InternalValidator(
+        fitter,
+        choice_column="CHOICE",
+        choice_mapping={1: 1, 2: 2, 3: 3},
+        group_column="ID",
+        random_state=0,
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        validator.cross_validate(data, n_splits=3)
+    assert not any("group_column was not set" in str(w.message) for w in caught)
+
+
+_NL_TWO_NEST_SPEC = {
+    "metadata": {"name": "synthetic_nl", "model_type": "NL"},
+    "parameters": {
+        "ASC_CAR": {"initial_value": 0, "fixed": True},
+        "ASC_TRAIN": {"initial_value": 0, "fixed": False},
+        "B_TIME": {"initial_value": 0, "fixed": False},
+        "B_COST": {"initial_value": 0, "fixed": False},
+        "MU_EXISTING": {
+            "initial_value": 1.5,
+            "lower_bound": 1.0,
+            "upper_bound": 10.0,
+            "fixed": False,
+        },
+    },
+    "utilities": {
+        "1": {"name": "Train", "formula": "ASC_TRAIN + B_TIME * TRAIN_TT + B_COST * TRAIN_CO"},
+        "2": {"name": "SM", "formula": "B_TIME * SM_TT + B_COST * SM_CO"},
+        "3": {"name": "Car", "formula": "ASC_CAR + B_TIME * CAR_TT + B_COST * CAR_CO"},
+    },
+    "availability": {"1": "1", "2": "1", "3": "1"},
+    "nests": {
+        "existing": {
+            "nest_param": "MU_EXISTING",
+            "alternatives": [1, 3],
+        }
+    },
+    "data_mapping": {
+        "choice_variable": "CHOICE",
+        "variables": {
+            "TRAIN_TT": "",
+            "TRAIN_CO": "",
+            "SM_TT": "",
+            "SM_CO": "",
+            "CAR_TT": "",
+            "CAR_CO": "",
+        },
+    },
+}
+
+
+def _synthetic_three_alt_nl_data(n=150, seed=13):
+    """3-alt data with correlation between alts 1 and 3 (nest-like structure)."""
+    rng = np.random.default_rng(seed)
+    train_tt = rng.uniform(20, 120, n)
+    train_co = rng.uniform(5, 40, n)
+    sm_tt = rng.uniform(15, 90, n)
+    sm_co = rng.uniform(10, 50, n)
+    car_tt = rng.uniform(15, 100, n)
+    car_co = rng.uniform(5, 60, n)
+
+    # Shared nest shock for train/car + idiosyncratic Gumbel-ish noise
+    nest_shock = rng.gumbel(size=n)
+    eps = rng.gumbel(size=(n, 3))
+    u1 = 0.3 - 0.02 * train_tt - 0.03 * train_co + 0.5 * nest_shock + eps[:, 0]
+    u2 = -0.02 * sm_tt - 0.03 * sm_co + eps[:, 1]
+    u3 = -0.02 * car_tt - 0.03 * car_co + 0.5 * nest_shock + eps[:, 2]
+    choice = np.argmax(np.column_stack([u1, u2, u3]), axis=1) + 1
+    return pd.DataFrame(
+        {
+            "CHOICE": choice,
+            "TRAIN_TT": train_tt,
+            "TRAIN_CO": train_co,
+            "SM_TT": sm_tt,
+            "SM_CO": sm_co,
+            "CAR_TT": car_tt,
+            "CAR_CO": car_co,
+        }
+    )
+
+
+def test_biogeme_spec_fitter_nested_logit_cv_uses_nested_oos_prediction():
+    """NL via fitter_from_spec: adapter.is_nested and CV succeed."""
+    pytest.importorskip("biogeme")
+    from dcmbench.validation.estimators import fitter_from_spec
+
+    data = _synthetic_three_alt_nl_data()
+    fitter = fitter_from_spec(_NL_TWO_NEST_SPEC, choice_column="CHOICE")
+
+    fitted = fitter(data)
+    assert fitted.converged
+    assert getattr(fitted._adapter, "is_nested", False) is True
+    assert fitted._adapter.nests is not None
+    probs = fitted.predict_probabilities(data.head(10))
+    assert list(probs.columns) == [1, 2, 3]
+    assert np.allclose(probs.sum(axis=1), 1.0, atol=1e-5)
+
+    validator = InternalValidator(
+        fitter, choice_column="CHOICE", choice_mapping={1: 1, 2: 2, 3: 3}, random_state=0
+    )
+    cv = validator.cross_validate(data, n_splits=3)
+    assert cv.n_success == 3
+    assert np.isfinite(cv.detail["rho_sq"]).all()
+

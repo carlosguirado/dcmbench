@@ -27,23 +27,14 @@ def main():
     spec = fetch_model_spec("mode_choice/mnl_swissmetro.json")
     fitter = fitter_from_spec(spec, choice_column="CHOICE")
 
-    # choice_mapping connects two label systems that predict_probabilities()
-    # is not guaranteed to share: the codes in the CHOICE column (here 1/2/3
-    # for Train/Swissmetro/Car) and the column names predict_probabilities()
-    # returns (here also 1/2/3, since UniversalBiogemeAdapter names its
-    # probability columns after the same numeric alternative IDs used in the
-    # model spec's `utilities`/`availability` keys). Format: {CHOICE code:
-    # probability column name}. It's an identity map here only because both
-    # sides happen to use the same numeric convention -- if CHOICE stored
-    # strings instead (e.g. "TRAIN"/"SM"/"CAR"), you'd need e.g.
-    # {"TRAIN": 1, "SM": 2, "CAR": 3}.
+    # {CHOICE code -> probability column name}; identity when both use 1/2/3
     choice_mapping = {1: 1, 2: 2, 3: 3}
 
     validator = InternalValidator(
         fitter,
         choice_column="CHOICE",
         choice_mapping=choice_mapping,
-        group_column="ID",  # keep all trips for a person in the same fold
+        group_column="ID",
         random_state=42,
         verbose=True,
     )
