@@ -98,6 +98,10 @@ class UniversalBiogemeAdapter(PredictionInterface):
             self.random_params_info = self.model._dcmbench_random_params
             logger.debug("Found random parameters info at model._dcmbench_random_params")
             self.is_mixed_logit = True
+
+        if hasattr(self.model, '_dcmbench_nests') and self.model._dcmbench_nests is not None:
+            self.nests = self.model._dcmbench_nests
+            logger.debug("Found stored nests at model._dcmbench_nests")
             
         # Check for mixed logit draws even if we have metadata
         for draws_attr in ['number_of_draws', 'numberOfDraws']:
@@ -113,8 +117,13 @@ class UniversalBiogemeAdapter(PredictionInterface):
             self._number_of_draws = self.number_of_draws
             self._av = self.av
             
-            # Update model type indicators
-            self.is_nested = False  # Will be updated if nests found
+            # Update model type indicators (nests may already be set above)
+            if self.nests is None:
+                for nest_attr in ['nests', 'nest_structure', 'nesting', '_nests']:
+                    if hasattr(self.model, nest_attr) and getattr(self.model, nest_attr) is not None:
+                        self.nests = getattr(self.model, nest_attr)
+                        break
+            self.is_nested = self.nests is not None
             self.is_mixed = (self.number_of_draws is not None and self.number_of_draws > 0)
             self.is_panel = False  # Will be updated if panel found
             
@@ -305,8 +314,13 @@ class UniversalBiogemeAdapter(PredictionInterface):
         alternatives = list(self.V.keys())
         
         for alt in alternatives:
-            # Use the original model structure
-            prob_formulas[f'Prob_{alt}'] = models.logit(self.V, self.av, alt)
+            # Use nested formulas when nests are present; otherwise MNL logit
+            if self.is_nested and self.nests is not None:
+                prob_formulas[f'Prob_{alt}'] = models.nested(
+                    self.V, self.av, self.nests, alt
+                )
+            else:
+                prob_formulas[f'Prob_{alt}'] = models.logit(self.V, self.av, alt)
         
         # Create biogeme object with probability formulas
         biogeme_sim = bio.BIOGEME(predict_db, prob_formulas)
@@ -1120,10 +1134,15 @@ class UniversalBiogemeAdapter(PredictionInterface):
         if self.V is None or self.av is None:
             raise ValueError("Cannot simulate - model utilities not available")
         
-        # Build probability formulas
+        # Build probability formulas (nested when nests are present)
         prob_formulas = {}
         for alt in self.V.keys():
-            prob_formulas[f'Prob_{alt}'] = models.logit(self.V, self.av, alt)
+            if self.is_nested and self.nests is not None:
+                prob_formulas[f'Prob_{alt}'] = models.nested(
+                    self.V, self.av, self.nests, alt
+                )
+            else:
+                prob_formulas[f'Prob_{alt}'] = models.logit(self.V, self.av, alt)
         
         # Create simulation model
         sim_model = bio.BIOGEME(sim_db, prob_formulas)

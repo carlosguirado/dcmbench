@@ -195,6 +195,7 @@ def build_model_from_spec(
                 logger.warning(f"Could not parse availability for alternative {alt_id}, defaulting to 1")
     
     # Create the appropriate model based on type
+    nests = None
     if model_type == 'MNL':
         logprob = models.loglogit(utilities, availabilities, choice_var)
     elif model_type == 'NL':
@@ -249,11 +250,21 @@ def build_model_from_spec(
     # Store utilities and availability for later use
     model._utilities = utilities
     model._availabilities = availabilities
+    # Preserve nests so OOS prediction can use models.nested (not MNL logit)
+    model._nests = nests
+    model.nests = nests
     
-    # Create probability formulas
+    # Create probability formulas matching the estimated model type
     prob_formulas = {}
     for alt in utilities.keys():
-        prob_formulas[f'Prob_{alt}'] = models.logit(utilities, availabilities, alt)
+        if nests is not None:
+            prob_formulas[f'Prob_{alt}'] = models.nested(
+                utilities, availabilities, nests, alt
+            )
+        else:
+            prob_formulas[f'Prob_{alt}'] = models.logit(
+                utilities, availabilities, alt
+            )
     
     # Store probability formulas for later use
     model._prob_formulas = prob_formulas

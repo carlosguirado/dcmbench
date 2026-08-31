@@ -10,28 +10,104 @@ You can install DCMBench using pip:
 pip install dcmbench
 ```
 
+### What's new in 0.1.3
+
+- **Internal validation** (`dcmbench.validation`): k-fold cross-validation and
+  prediction-error bootstrap (OOB + 0.632) with re-estimation on each fold/draw.
+  See the [Internal Validation](#internal-validation-cross-validation-and-bootstrap)
+  section below and `CHANGELOG.md`.
+
+## What to use when
+
+| Need | Use |
+|------|-----|
+| In-sample fit / compare models on estimation data | `SimpleBenchmarker` |
+| Internal validation (k-fold CV / prediction-error bootstrap) | `dcmbench.validation` |
+| Parameter standard errors via bootstrap | Not in DCMBench (see Apollo-style tools) |
+
 ## Key Features
 
 ### Model Estimation and Benchmarking
 
 - **Multiple Model Types**: Support for Multinomial Logit (MNL), Nested Logit (NL), and Mixed Logit (ML) models
 - **Standardized Metrics**: Compare models using log-likelihood, rho-squared, prediction accuracy, and market share
-- **Cross-validation**: Evaluate model performance on training and testing datasets
+- **Internal validation**: K-fold cross-validation and prediction-error bootstrap (OOB + 0.632)
 - **Visualization**: Generate comparative plots showing model performance across different metrics
 
 ```python
-from dcmbench.model_benchmarker import Benchmarker
+from dcmbench.model_benchmarker import SimpleBenchmarker
 from dcmbench.datasets import fetch_data
 
 # Load dataset (automatically downloads if not in local cache)
 data = fetch_data("swissmetro_dataset")
 
-# Define models and run benchmark
-benchmarker = Benchmarker()
-benchmarker.register_model(models, "Model Name")
+# Define models and run benchmark (in-sample scoring of already-fitted models)
+benchmarker = SimpleBenchmarker()
+benchmarker.register_model(adapter, "Model Name")
 results = benchmarker.run_benchmark(data, choice_column="CHOICE")
 benchmarker.print_comparison()
 ```
+
+### Internal Validation (Cross-Validation and Bootstrap)
+
+`dcmbench.validation` re-estimates the model on each training fold or bootstrap sample and scores held-out data. This is separate from in-sample `SimpleBenchmarker` metrics.
+
+```python
+from dcmbench.datasets import fetch_data
+from dcmbench.model_specifications import fetch_model_spec
+from dcmbench.utils.model_extensions import prepare_swissmetro_data_standard
+from dcmbench.validation import InternalValidator, fitter_from_spec
+
+data = prepare_swissmetro_data_standard(fetch_data("swissmetro_dataset"))
+spec = fetch_model_spec("mode_choice/mnl_swissmetro.json")
+fitter = fitter_from_spec(spec, choice_column="CHOICE")
+
+validator = InternalValidator(
+    fitter,
+    choice_column="CHOICE",
+    choice_mapping={1: 1, 2: 2, 3: 3},
+    group_column="ID",       # recommended for panel / repeated choices
+    random_state=42,
+)
+
+cv = validator.cross_validate(data, n_splits=5)
+print(cv.summary())
+
+boot = validator.bootstrap(data, n_bootstrap=30)
+print(boot.summary())  # includes *_oob and *_632 prediction metrics
+```
+
+See `tutorials/internal_validation_swissmetro.py` for a runnable example.
+
+**Notes:**
+- Each fold/draw is a full estimation (can be slow for mixed logit).
+- Bootstrap here estimates **out-of-sample predictive fit**, not parameter covariance.
+- `choice_mapping` maps `{CHOICE code -> probability column name}` (identity
+  `{1: 1, 2: 2, 3: 3}` when both use the same alternative IDs).
+- **MNL/NL:** use `fitter_from_spec`. **MXL:** JSON specs cannot build real
+  `bioDraws` models — use `FunctionModelFitter` with a hand-built model
+  (see `tutorials/internal_validation_mxl_swissmetro.py`):
+
+  ```python
+  from dcmbench.validation import FunctionModelFitter, InternalValidator
+
+  fitter = FunctionModelFitter(
+      build_fn=build_mxl,
+      predict_fn=predict_mxl,
+      null_loglikelihood_fn=null_loglikelihood_mxl,
+      choice_column="CHOICE",
+  )
+  validator = InternalValidator(
+      fitter,
+      choice_column="CHOICE",
+      choice_mapping={1: 1, 2: 2, 3: 3},
+      group_column="ID",
+  )
+  cv = validator.cross_validate(data, n_splits=5)
+  ```
+
+  `build_fn` and `predict_fn` must use the same utility / nesting / draws
+  structure (see the MXL tutorial for a shared-helpers pattern).
 
 ### Advanced Analysis Capabilities
 
@@ -118,10 +194,11 @@ This calculates individual-specific parameters using Bayesian conditioning and p
 ## Requirements
 
 - Python >=3.8
-- NumPy >=2.0.0
-- Pandas >=2.0.0
-- Biogeme >=3.2.14
-- Matplotlib >=3.0.0
+- NumPy >=1.19.0
+- Pandas >=1.2.0
+- Biogeme >=3.2.0
+- scikit-learn >=0.24.0
+- Matplotlib >=3.3.0
 - Requests >=2.25.0
 - SciPy (for statistical functions)
 - Seaborn (for advanced visualizations)

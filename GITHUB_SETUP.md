@@ -22,8 +22,8 @@ The repository is now configured to point to: https://github.com/carlosguirado/d
 
 ### Documentation
 - `PUBLISHING_GUIDE.md` - Instructions for publishing to PyPI
-- `tutorials/` - Placeholder for future tutorials
-  - `tutorials/README.md` - Lists upcoming tutorial topics
+- `tutorials/` - Runnable examples (including internal validation)
+  - `tutorials/README.md` - Index of available tutorials
 
 ### Configuration
 - `.gitignore` - Excludes unnecessary files from version control

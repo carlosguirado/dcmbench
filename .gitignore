@@ -47,6 +47,7 @@ notebook_env/
 *.html
 *.pickle
 *.iter
+biogeme.toml
 
 # Model output files
 *.log
@@ -55,10 +56,14 @@ notebook_env/
 # Backup files
 *.backup
 
-# Local test directories
+# Local scratch directories
 Aug25_test/
 examples/
-tests/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Individual parameter files
 individual_params_*.pickle
