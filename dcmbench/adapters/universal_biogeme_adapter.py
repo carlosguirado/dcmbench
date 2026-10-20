@@ -21,6 +21,22 @@ from biogeme.expressions import Beta
 
 from ..model_benchmarker.model_interface import PredictionInterface
 
+
+def _find_number_of_draws(model: bio.BIOGEME) -> Optional[int]:
+    """Return the model's number of draws only if its log-likelihood uses draws.
+
+    Biogeme 3.3 defines ``number_of_draws`` (default 10,000) on every model, so
+    the attribute alone does not mean the model is a mixed logit.
+    """
+    log_like = getattr(model, 'log_like', None)
+    if log_like is not None and hasattr(log_like, 'requires_draws'):
+        if not log_like.requires_draws():
+            return None
+    for draws_attr in ['number_of_draws', 'numberOfDraws']:
+        if hasattr(model, draws_attr):
+            return getattr(model, draws_attr)
+    return None
+
 logger = logging.getLogger(__name__)
 
 
@@ -104,12 +120,10 @@ class UniversalBiogemeAdapter(PredictionInterface):
             logger.debug("Found stored nests at model._dcmbench_nests")
             
         # Check for mixed logit draws even if we have metadata
-        for draws_attr in ['number_of_draws', 'numberOfDraws']:
-            if hasattr(self.model, draws_attr):
-                self.number_of_draws = getattr(self.model, draws_attr)
-                logger.debug(f"Found number_of_draws: {self.number_of_draws}")
-                break
-                
+        self.number_of_draws = _find_number_of_draws(self.model)
+        if self.number_of_draws is not None:
+            logger.debug(f"Found number_of_draws: {self.number_of_draws}")
+
         # If we found stored metadata and it's complete, skip the rest of extraction
         if self.V is not None and self.av is not None:
             logger.info("Using stored DCMBench metadata for prediction")
@@ -221,11 +235,9 @@ class UniversalBiogemeAdapter(PredictionInterface):
         
         # Check for mixed logit (number_of_draws already initialized at top of method)
         if self.number_of_draws is None:  # Only check if not already found
-            for draws_attr in ['number_of_draws', 'numberOfDraws']:
-                if hasattr(self.model, draws_attr):
-                    self.number_of_draws = getattr(self.model, draws_attr)
-                    logger.debug(f"Found number_of_draws: {self.number_of_draws}")
-                    break
+            self.number_of_draws = _find_number_of_draws(self.model)
+            if self.number_of_draws is not None:
+                logger.debug(f"Found number_of_draws: {self.number_of_draws}")
         
         # Check for panel
         for panel_attr in ['panel', 'panel_structure', 'individualID']:
@@ -323,7 +335,9 @@ class UniversalBiogemeAdapter(PredictionInterface):
                 prob_formulas[f'Prob_{alt}'] = models.logit(self.V, self.av, alt)
         
         # Create biogeme object with probability formulas
-        biogeme_sim = bio.BIOGEME(predict_db, prob_formulas)
+        biogeme_sim = bio.BIOGEME(
+            predict_db, prob_formulas, **self._simulation_parameters()
+        )
         biogeme_sim.modelName = f"{self.name}_probs"
         
         # Transfer model-specific settings
@@ -341,14 +355,20 @@ class UniversalBiogemeAdapter(PredictionInterface):
         
         return probabilities
     
-    def _transfer_model_settings(self, sim_model: bio.BIOGEME):
-        """Transfer model-specific settings to the simulation model."""
-        
+    def _simulation_parameters(self) -> Dict[str, Any]:
+        """Biogeme parameters for a simulation model's constructor.
+
+        Biogeme 3.3 rejects setting these after construction.
+        """
         # For Mixed Logit: preserve number of draws
         if self.is_mixed and self.number_of_draws:
-            sim_model.number_of_draws = self.number_of_draws
-            logger.debug(f"Set number_of_draws to {self.number_of_draws}")
-        
+            logger.debug(f"Using number_of_draws={self.number_of_draws}")
+            return {'number_of_draws': self.number_of_draws}
+        return {}
+
+    def _transfer_model_settings(self, sim_model: bio.BIOGEME):
+        """Transfer model-specific settings to the simulation model."""
+
         # For Nested Logit: preserve nest structure
         if self.is_nested and self.nests:
             sim_model.nests = self.nests
@@ -406,18 +426,20 @@ class UniversalBiogemeAdapter(PredictionInterface):
             prob_formulas[f'Prob_{alt}'] = MonteCarlo(logit_prob)
         
         # Step 5: Generate simulations
-        biogeme_sim = bio.BIOGEME(predict_db, prob_formulas)
-        biogeme_sim.modelName = f"{self.name}_mxl_probs"
-        
         # Set number of draws (critical for MXL)
         if hasattr(self.model, 'number_of_draws'):
-            biogeme_sim.number_of_draws = self.model.number_of_draws
+            number_of_draws = self.model.number_of_draws
         elif hasattr(self.model, 'numberOfDraws'):
-            biogeme_sim.number_of_draws = self.model.numberOfDraws
+            number_of_draws = self.model.numberOfDraws
         else:
-            biogeme_sim.number_of_draws = 200  # Default
+            number_of_draws = 200  # Default
             logger.warning("Using default 200 draws for MXL simulation")
-        
+
+        biogeme_sim = bio.BIOGEME(
+            predict_db, prob_formulas, number_of_draws=number_of_draws
+        )
+        biogeme_sim.modelName = f"{self.name}_mxl_probs"
+
         logger.debug(f"Simulating with {biogeme_sim.number_of_draws} draws")
         
         # Simulate probabilities with estimated parameters
@@ -539,12 +561,12 @@ class UniversalBiogemeAdapter(PredictionInterface):
                 prob_formulas[f'Prob_{alt}'] = models.logit(V, av, alt)
             
             # Create biogeme object and simulate
-            biogeme_sim = bio.BIOGEME(predict_db, prob_formulas)
-            biogeme_sim.modelName = f"{self.name}_probs"
-            
+            draws_kwargs = {}
             if self._number_of_draws is not None:
-                biogeme_sim.number_of_draws = self._number_of_draws
-            
+                draws_kwargs['number_of_draws'] = self._number_of_draws
+            biogeme_sim = bio.BIOGEME(predict_db, prob_formulas, **draws_kwargs)
+            biogeme_sim.modelName = f"{self.name}_probs"
+
             simulated = biogeme_sim.simulate(betas)
             probabilities = self._format_probability_output(simulated)
             self._last_probabilities = probabilities
@@ -1145,7 +1167,7 @@ class UniversalBiogemeAdapter(PredictionInterface):
                 prob_formulas[f'Prob_{alt}'] = models.logit(self.V, self.av, alt)
         
         # Create simulation model
-        sim_model = bio.BIOGEME(sim_db, prob_formulas)
+        sim_model = bio.BIOGEME(sim_db, prob_formulas, **self._simulation_parameters())
         sim_model.modelName = f"{self.name}_simulation"
         
         # Transfer model settings

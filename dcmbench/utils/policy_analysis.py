@@ -213,13 +213,13 @@ class PolicyAnalyzer:
                 prob_formulas[f'P_{alt}'] = models.logit(self.adapter.V, self.adapter.av, alt)
         
         # Create simulation model
-        sim_model = bio.BIOGEME(sim_db, prob_formulas)
-        sim_model.modelName = f"{self.adapter.name}_simulation"
-        
-        # Transfer model-specific settings
+        # Transfer model-specific settings (Biogeme 3.3 only accepts them here)
+        sim_kwargs = {}
         if hasattr(self.adapter, 'number_of_draws') and self.adapter.number_of_draws:
-            sim_model.number_of_draws = self.adapter.number_of_draws
-            
+            sim_kwargs['number_of_draws'] = self.adapter.number_of_draws
+        sim_model = bio.BIOGEME(sim_db, prob_formulas, **sim_kwargs)
+        sim_model.modelName = f"{self.adapter.name}_simulation"
+
         # Simulate probabilities
         probabilities = sim_model.simulate(betas)
         

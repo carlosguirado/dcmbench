@@ -105,7 +105,8 @@ def fetch_model_spec(
 def build_model_from_spec(
     spec: Dict[str, Any],
     database: db.Database,
-    validate_spec: bool = True
+    validate_spec: bool = True,
+    **biogeme_kwargs: Any
 ) -> bio.BIOGEME:
     """
     Build a Biogeme model from a JSON specification.
@@ -126,7 +127,10 @@ def build_model_from_spec(
         Biogeme database object containing the data
     validate_spec : bool, default=True
         Whether to validate the specification structure before building
-        
+    **biogeme_kwargs
+        Biogeme parameters (e.g. ``generate_html=False``) passed to the
+        ``BIOGEME`` constructor; Biogeme 3.3 rejects setting them afterwards
+
     Returns
     -------
     biogeme.biogeme.BIOGEME
@@ -243,7 +247,7 @@ def build_model_from_spec(
         raise ValueError(f"Unsupported model type: {model_type}")
     
     # Create and configure the model
-    model = bio.BIOGEME(database, logprob)
+    model = bio.BIOGEME(database, logprob, **biogeme_kwargs)
     model.modelName = model_name
     
     # Also create probability formulas for easier prediction

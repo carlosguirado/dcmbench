@@ -10,6 +10,13 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+# Biogeme 3.3 only accepts these as constructor kwargs (attribute assignment raises).
+_QUIET_BIOGEME_PARAMETERS = {
+    "generate_html": False,
+    "generate_yaml": False,
+    "save_iterations": False,
+}
+
 
 def _default_converged(results: Any) -> bool:
     """Best-effort convergence check shared by all Biogeme-backed FittedModels."""
@@ -90,14 +97,7 @@ class BiogemeFittedModel:
             logprob = models.loglogit(
                 self._utilities, self._availabilities, choice
             )
-            biogeme = bio.BIOGEME(database, logprob)
-            for attr, value in (
-                ("generate_html", False),
-                ("generate_pickle", False),
-                ("saveIterations", False),
-            ):
-                if hasattr(biogeme, attr):
-                    setattr(biogeme, attr, value)
+            biogeme = bio.BIOGEME(database, logprob, **_QUIET_BIOGEME_PARAMETERS)
             return float(
                 biogeme.calculate_null_loglikelihood(self._availabilities)
             )
@@ -161,7 +161,8 @@ class BiogemeSpecFitter:
         from dcmbench.model_specifications import build_model_from_spec
 
         database = db.Database(self.database_name, train_df.copy())
-        model = build_model_from_spec(self.spec, database)
+        biogeme_kwargs = _QUIET_BIOGEME_PARAMETERS if self.quiet else {}
+        model = build_model_from_spec(self.spec, database, **biogeme_kwargs)
 
         # Expose utilities/availability/nests for UniversalBiogemeAdapter OOS predict
         if hasattr(model, "_utilities"):
@@ -171,15 +172,6 @@ class BiogemeSpecFitter:
         if getattr(model, "_nests", None) is not None:
             model._dcmbench_nests = model._nests
             model.nests = model._nests
-
-        if self.quiet:
-            for attr, value in (
-                ("generate_html", False),
-                ("generate_pickle", False),
-                ("saveIterations", False),
-            ):
-                if hasattr(model, attr):
-                    setattr(model, attr, value)
 
         results = model.estimate()
         adapter = UniversalBiogemeAdapter(
