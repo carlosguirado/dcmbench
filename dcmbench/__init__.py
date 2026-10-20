@@ -1,27 +1,14 @@
-# dcmbench/__init__.py
+"""
+DCMBench: evaluate discrete choice models from their choice probabilities.
 
-from .datasets import DatasetLoader
-from . import datasets
-from . import model_benchmarker
-from . import validation
-from .model_specifications import (
-    fetch_model_spec, 
-    build_model_from_spec, 
-    model_to_spec,
-    list_available_specs,
-    validate_model_spec
-)
-# Do not import models to avoid circular imports
-# from . import models
+- ``dcmbench.data``: versioned datasets with their choice-problem descriptions
+- ``dcmbench.specs``: spec v2 model specifications
+- ``dcmbench.engines``: Biogeme, PyTorch, scikit-learn and precomputed models
+- ``dcmbench.evaluation``: fit, prediction, elasticities, VOT, scenarios, regularity
+- ``dcmbench.validation``: cross-validation and bootstrap
+"""
 
-__all__ = [
-    'DatasetLoader', 
-    'datasets', 
-    'model_benchmarker',
-    'validation',
-    'fetch_model_spec',
-    'build_model_from_spec',
-    'model_to_spec',
-    'list_available_specs',
-    'validate_model_spec'
-]
+from dcmbench import data, engines, evaluation, specs, validation
+from dcmbench.problem import Attribute, ChoiceProblem
+
+__all__ = ["Attribute", "ChoiceProblem", "data", "engines", "evaluation", "specs", "validation"]

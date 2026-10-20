@@ -63,6 +63,3 @@ Repository = "https://github.com/carlosguirado/dcmbench.git"
 where = ["."]
 include = ["dcmbench*"]
 exclude = ["tests*", "examples*", "docs*", "Aug25_test*", "notebook_env*", "pytorch_env*", "test_env*"]
-
-[tool.setuptools.package-data]
-dcmbench = ["datasets/metadata.json"]

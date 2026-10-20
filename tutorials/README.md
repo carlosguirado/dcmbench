@@ -1,4 +1,4 @@
 # Tutorials
 
-- [`internal_validation_swissmetro.py`](internal_validation_swissmetro.py) — k-fold CV and prediction-error bootstrap for Swissmetro MNL.
-- [`internal_validation_mxl_swissmetro.py`](internal_validation_mxl_swissmetro.py) — k-fold CV for a hand-built Swissmetro mixed logit (MXL) model via `FunctionModelFitter`, since `fitter_from_spec` cannot build genuine random-coefficient models.
+- [`internal_validation_swissmetro.py`](internal_validation_swissmetro.py): k-fold CV and a prediction-error bootstrap for a Swissmetro MNL, estimated with Biogeme from a spec v2.
+- [`internal_validation_mxl_swissmetro.py`](internal_validation_mxl_swissmetro.py): k-fold CV for a Swissmetro mixed logit (MXL) with panel Halton draws, also from a spec v2. `FunctionModelFitter` is still available for models a spec cannot express.
