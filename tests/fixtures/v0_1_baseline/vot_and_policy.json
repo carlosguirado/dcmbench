@@ -1,0 +1,16 @@
+{
+  "_provenance": "Printed by the 0.1.x benchmark scripts 03_vot_plots.py and 04_policy_analysis.py, run unchanged on 2026-10-20 with dcmbench==0.1.2, biogeme==3.2.14, tomlkit<0.13.3, Python 3.12. Full sample, no split.",
+  "modecanada_vot_usd_per_hour": {
+    "mnl_population": 30.31,
+    "mnl_income_segmented": {"low_income": 23.44, "low_income_share": 0.544, "high_income": 36.38, "high_income_share": 0.456},
+    "mnl_urban_rural": {"rural": 19.29, "urban": 24.47},
+    "mxl_normal": {"mean": 155.47, "median": 149.47, "share_negative_filtered": 0.072},
+    "mxl_lognormal": {"mean": 87.76, "median": 67.00},
+    "mxl_vot_method": "Draws from the estimated population (unconditional) distribution, via dcmbench 0.1.2 VOTCalculator._simulate_from_distribution."
+  },
+  "swissmetro_car_cost_x1_5": {
+    "car_share_pct_change": {"MNL": -24.5, "NL": -32.9, "MXL": -25.0},
+    "share_of_car_loss_diverted_to_train": {"MNL": 0.180, "NL": 0.520, "MXL": 0.246},
+    "share_of_car_loss_diverted_to_swissmetro": {"MNL": 0.820, "NL": 0.480, "MXL": 0.754}
+  }
+}
