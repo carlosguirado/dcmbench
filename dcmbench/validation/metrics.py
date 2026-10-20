@@ -131,9 +131,12 @@ def likelihood_metrics(
     choice_column: str,
     choice_mapping: ChoiceMapping,
     null_ll: float,
-    n_params: int,
+    n_params: Optional[int],
 ) -> Dict[str, float]:
-    """Compute avg_ll, rho_sq, and rho_bar_sq on an evaluation frame."""
+    """Compute avg_ll, rho_sq, and rho_bar_sq on an evaluation frame.
+
+    rho_bar_sq is NaN when ``n_params`` is None (no meaningful parameter count).
+    """
     ll_obs = observation_loglikelihoods(results, choice_column, choice_mapping)
     total_ll = float(np.sum(ll_obs))
     n = len(results)
@@ -145,7 +148,7 @@ def likelihood_metrics(
         rho_bar_sq = np.nan
     else:
         rho_sq = 1.0 - (total_ll / null_ll)
-        rho_bar_sq = 1.0 - ((total_ll - n_params) / null_ll)
+        rho_bar_sq = np.nan if n_params is None else 1.0 - ((total_ll - n_params) / null_ll)
     return {
         "avg_ll": avg_ll,
         "rho_sq": float(rho_sq),

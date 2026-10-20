@@ -10,7 +10,6 @@ import gzip
 import requests
 from pathlib import Path
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # URL where datasets are hosted
