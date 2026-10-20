@@ -208,10 +208,37 @@ VOT is reported in `cost unit / hour`, using the `ChoiceProblem` units. This rep
 ### 5.4 Behavioral regularity (Feng et al. 2024)
 Behavioral regularity is the natural diagnostic for ML and hybrid models. With those models in the benchmark, it becomes a reported result.
 
-- **Implement Feng et al.'s own metrics.** Their paper ([arXiv:2404.14701](https://arxiv.org/abs/2404.14701)) defines *strong* and *weak* behavioral regularity as metrics of "the monotonicity of individual demand functions". Implement their definitions exactly, so our numbers are comparable with theirs. Don't invent our own variant. The full paper must be read for the exact formulas, attributes and denominators before implementation; so far only the abstract has been read.
-- **Use the shared perturbation engine.** The metrics are computed from probability responses to own-attribute changes. Arc differences are used for piecewise-constant models, as in §5.1.
-- **Report per model, per attribute and per dataset.** Results go on the specification card (§3.5).
-- **Test cases.** Classical RUMs with correctly signed coefficients must score full regularity by construction. A deliberately non-monotone synthetic model must not.
+**Definition** (Feng et al. 2024, Eqs. 5–6; [arXiv:2404.14701](https://arxiv.org/abs/2404.14701); code: github.com/siqi-feng/DNN-behavioral-regularity). For alternative *i* and its own cost *d*, regularity is the share of observations where the individual choice probability P_ni falls when x_nd rises:
+- **Strong:** ΔP < −τ, which requires a strict decrease.
+- **Weak:** ΔP < +τ, which also lets a zero response pass.
+- The paper only says "a small negative / positive number". The details below come from their code.
+
+**Their computation**, reproduced exactly:
+- One-sided forward difference at each observed point: ΔP = P_i(x_d + h) − P_i(x_d).
+- Step h = (max − min of x_d over the full dataset) / 200, in raw units. Any features derived from x_d are recomputed.
+- The threshold is applied to the raw ΔP (not ΔP/Δx), with τ = range_d / K. They used K = 1e6 on their Chicago data, and 5e5 or 2e6 on some London subsamples.
+- Headline numbers are on test data, and are averaged over 10 training replications.
+- They check one pair per dataset: P(car) w.r.t. car cost (once, P(transit) w.r.t. transit cost). Time, other alternatives and cross effects are not checked.
+- Reference values for sanity checks: MNL strong 0.980–0.998, weak 1.000. DNN strong 0.185–0.950, depending on sample size and whether the test data is out of domain.
+
+**DCMBench implementation:**
+- **Paper-comparable headline:** P(car) w.r.t. car cost, with h = range/200 and τ = range/1e6, on held-out data. Averaged over replications for seeded models.
+- **Also reported:** every (alternative, own-cost) pair separately, plus own-time pairs as an extension. Each is labeled.
+- **Stored with every result:** the raw ΔP values, h and τ.
+
+**Deviations, each flagged on the card:**
+- more than one pair, and any average across pairs;
+- one τ convention (K = 1e6) on every dataset;
+- time attributes;
+- excluding observations where alternative *i* is unavailable. The paper never deals with availability: an unavailable alternative has ΔP = 0, which would count as a strong failure.
+
+**Pitfalls:**
+- **Piecewise-constant models** (trees, RUMBoost). With h = range/200 most ΔP are exactly 0. Strong then measures how often a split falls inside [x, x+h], and weak is close to 1. Report the plain forward difference as specified, with a flag. Any larger-step variant is a separate, labeled extension.
+- **Simulated probabilities** (MXL). Both evaluations must use the same draws (common random numbers). Otherwise, simulation noise swamps a τ of about 1e-5. This becomes a requirement on engines: `predict_probabilities` must be deterministic for a fixed fitted model.
+- **Costs zeroed by the spec** (e.g. Swissmetro GA holders). Perturbing raw cost correctly gives ΔP = 0 for those observations. They pass weak and fail strong. Report how many observations are structurally unaffected.
+
+**Test cases:** a correctly signed MNL scores weak = 1 and strong ≈ 1, and a deliberately non-monotone synthetic model does not.
+
 - **Out of scope:** Feng et al.'s remedy, gradient regularization, is an estimation technique, not an evaluation.
 
 ## 6. Model coverage
@@ -322,7 +349,7 @@ These come from a review of the 0.1.x benchmark scripts (00–04, not in this re
 - **Availability in ML models.** sklearn and NN models must mask unavailable alternatives, or the LL and F1 results are invalid.
 - **Data hosting.** Datasets live in a separate GitHub repo. Decide whether to keep that, move to Zenodo (which gives a DOI), or both.
 - **Runtime.** MXL, hybrid models, CV and bootstrap together can be slow. Fitting folds in parallel and caching results may be needed.
-- **Feng et al. definitions.** The regularity metrics (§5.4) depend on reading their full paper. If their definitions need a model's internal gradients rather than probability responses, adapt them and say so on the card.
+- **Feng et al. definitions.** Resolved 2026-10-20 (§5.4). Their metric is a finite difference on probabilities, so it can be computed for any model; the deviations are listed and flagged.
 - **Specification card overclaiming.** Frame the card as a prototype for discussion (§3.5). Standardizing metrics needs community consensus.
 - **Repo hygiene.** Private working materials (`paper/`) are in `.gitignore` and must stay out of the repo.
 
@@ -340,7 +367,7 @@ These come from a review of the 0.1.x benchmark scripts (00–04, not in this re
 | 2026-10-20 | VOT: Route A where a model has parameters, Route B (flagged) otherwise. A generalized VOT comparison across models. |
 | 2026-10-20 | `validation/` stays intact; its tests gate every phase. |
 | 2026-10-20 | Apollo: precomputed-predictions engine in the core; Rscript bridge last and optional. |
-| 2026-10-20 | Behavioral regularity: implement Feng et al.'s strong and weak metrics exactly; gradient regularization is out of scope. |
+| 2026-10-20 | Behavioral regularity: implement Feng et al.'s strong and weak metrics exactly (forward difference, h = range/200, τ = range/1e6 on ΔP, own cost, held-out data); extensions and deviations are flagged; gradient regularization is out of scope. |
 | 2026-10-20 | DCMBench produces a versioned *prototype* specification card, framed as a strawman for community consensus. |
 | 2026-10-20 | Rebuild JSON specs as spec v2: an engine-neutral expression language compiled to Biogeme and PyTorch; MXL done properly; no `eval()`. |
 | 2026-10-20 | Private working materials kept out of the repo (`.gitignore`). |
