@@ -67,3 +67,6 @@ htmlcov/
 
 # Individual parameter files
 individual_params_*.pickle
+
+# Private working materials, kept out of the repo
+paper/
