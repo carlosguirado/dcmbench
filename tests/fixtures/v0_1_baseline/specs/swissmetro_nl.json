@@ -1,0 +1,45 @@
+{
+  "spec_version": 2,
+  "name": "swissmetro_nl",
+  "description": "0.1.x Swissmetro NL with a train-car nest.",
+  "model": "NL",
+  "alternatives": [
+    "train",
+    "sm",
+    "car"
+  ],
+  "parameters": {
+    "ASC_TRAIN": {
+      "start": 0
+    },
+    "ASC_CAR": {
+      "start": 0
+    },
+    "B_TIME": {
+      "start": 0
+    },
+    "B_COST": {
+      "start": 0
+    },
+    "MU_EXISTING": {
+      "start": 1.5,
+      "lower": 1,
+      "upper": 10
+    }
+  },
+  "utilities": {
+    "train": "ASC_TRAIN + B_TIME * TRAIN_TT / 100 + B_COST * TRAIN_CO * (GA == 0) / 100",
+    "sm": "B_TIME * SM_TT / 100 + B_COST * SM_CO * (GA == 0) / 100",
+    "car": "ASC_CAR + B_TIME * CAR_TT / 100 + B_COST * CAR_CO / 100"
+  },
+  "nests": [
+    {
+      "name": "existing",
+      "parameter": "MU_EXISTING",
+      "alternatives": [
+        "train",
+        "car"
+      ]
+    }
+  ]
+}

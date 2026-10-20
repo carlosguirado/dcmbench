@@ -314,6 +314,10 @@ Progress:
   - Tests: known-truth tests (MNL closed forms, normal-MXL negative-VOT share, IIA diversion, regularity counts).
   - Real-data check: a throwaway MNL reproduces the 0.1.x Swissmetro baseline exactly.
   - Design: `docs/design/phase2-evaluation.md`.
+- **Phase 3: done 2026-10-20.**
+  - What was built: spec v2 (expression language, schema, v1 conversion), a shared `SpecModel`, the `BiogemeEstimator`, `TorchEstimator`, `SklearnFitter` and `PrecomputedModel` engines, and `BiogemeSpecFitter` rebuilt. The 0.1.x adapters, benchmarker, utilities, spec builder and dataset loader were deleted. The tutorials were ported.
+  - Checks: Biogeme–PyTorch parity on the ten 0.1.x benchmark specs; known-truth recovery; and the 1.0 stack reproducing the 0.1.x baseline (`tests/test_v0_1_regression.py`).
+  - Design: `docs/design/phase3-specs-engines.md`.
 
 Ordering note: benchmark scripts can be drafted against the `v1` branch from Phase 4 on. They need 1.0.0 to be published only if results must cite a release.
 

@@ -10,13 +10,6 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# Biogeme 3.3 only accepts these as constructor kwargs (attribute assignment raises).
-_QUIET_BIOGEME_PARAMETERS = {
-    "generate_html": False,
-    "generate_yaml": False,
-    "save_iterations": False,
-}
-
 
 def _default_converged(results: Any) -> bool:
     """Best-effort convergence check shared by all Biogeme-backed FittedModels."""
@@ -29,7 +22,9 @@ def _default_converged(results: Any) -> bool:
         if flag is not None:
             return bool(flag)
     if hasattr(results, "algorithm_has_converged"):
-        return bool(results.algorithm_has_converged())
+        flag = results.algorithm_has_converged
+        # A method before Biogeme 3.3, a property from 3.3 on.
+        return bool(flag() if callable(flag) else flag)
     # Successful estimate() without an explicit flag: treat as converged.
     return True
 
@@ -46,85 +41,45 @@ def _default_n_params(results: Any) -> int:
 
 
 class BiogemeFittedModel:
-    """FittedModel wrapper around UniversalBiogemeAdapter + Biogeme results."""
+    """
+    FittedModel for a v1 spec estimated with Biogeme.
 
-    def __init__(
-        self,
-        adapter: Any,
-        results: Any,
-        availabilities: Optional[Dict[Any, Any]] = None,
-        utilities: Optional[Dict[Any, Any]] = None,
-        choice_column: str = "CHOICE",
-    ):
-        self._adapter = adapter
-        self._results = results
-        self._availabilities = availabilities
-        self._utilities = utilities
+    Wraps a ``dcmbench.specs.SpecModel``; probability columns are the v1
+    alternative ids (e.g. 1, 2, 3).
+    """
+
+    def __init__(self, model: Any, choice_column: str = "CHOICE"):
+        self._adapter = model  # the SpecModel; kept under this name for existing callers
         self.choice_column = choice_column
+        self._columns = {alt: (int(alt) if alt.isdigit() else alt) for alt in model.problem.alternatives}
 
     def predict_probabilities(self, data: pd.DataFrame) -> pd.DataFrame:
-        return self._adapter.predict_probabilities(data)
+        return self._adapter.predict_probabilities(data).rename(columns=self._columns)
 
     @property
     def n_params(self) -> int:
-        return _default_n_params(self._results)
+        return self._adapter.n_params
 
     @property
     def converged(self) -> bool:
-        return _default_converged(self._results)
+        return self._adapter.converged
 
     def null_loglikelihood(self, data: pd.DataFrame) -> float:
-        """Availability-aware null LL when possible; else equal-share fallback."""
-        import biogeme.biogeme as bio
-        import biogeme.database as db
-        from biogeme import models
-        from biogeme.expressions import Variable
-
-        from dcmbench.validation.metrics import equal_share_null_loglikelihood
-
-        n_alts = None
-        if self._utilities is not None:
-            n_alts = len(self._utilities)
-
-        if self._availabilities is None or self._utilities is None:
-            return equal_share_null_loglikelihood(
-                data, self.choice_column, n_alternatives=n_alts
-            )
-
-        try:
-            database = db.Database("null_ll", data.copy())
-            choice = Variable(self.choice_column)
-            logprob = models.loglogit(
-                self._utilities, self._availabilities, choice
-            )
-            biogeme = bio.BIOGEME(database, logprob, **_QUIET_BIOGEME_PARAMETERS)
-            return float(
-                biogeme.calculate_null_loglikelihood(self._availabilities)
-            )
-        except Exception as exc:
-            warnings.warn(
-                f"Availability-aware null log-likelihood failed ({type(exc).__name__}: "
-                f"{exc}); falling back to an equal-share null LL that ignores "
-                "per-observation availability. This changes the baseline used for "
-                "rho_sq/rho_bar_sq on this fold/draw and may not be comparable to "
-                "folds where the availability-aware null LL succeeded.",
-                UserWarning,
-                stacklevel=2,
-            )
-            return equal_share_null_loglikelihood(
-                data, self.choice_column, n_alternatives=n_alts
-            )
+        """Availability-aware equal-share null LL."""
+        return self._adapter.null_loglikelihood(data)
 
 
 class BiogemeSpecFitter:
     """
-    Fit a Biogeme model from a JSON specification on each training subset.
+    Fit a Biogeme model from a v1 JSON specification on each training subset.
 
     Usage::
 
         fitter = BiogemeSpecFitter(spec, choice_column="CHOICE")
         fitted = fitter(train_df)
         probs = fitted.predict_probabilities(test_df)
+
+    For new work, write a spec v2 and use ``dcmbench.engines.biogeme.BiogemeEstimator``.
     """
 
     def __init__(
@@ -134,56 +89,21 @@ class BiogemeSpecFitter:
         database_name: str = "validation_train",
         quiet: bool = True,
     ):
-        model_type = str(spec.get("metadata", {}).get("model_type", "")).upper()
-        if model_type == "MXL":
-            random_params = spec.get("random_parameters", {})
-            if random_params:
-                raise NotImplementedError(
-                    "fitter_from_spec cannot build MXL with random_parameters "
-                    "(no bioDraws). Use FunctionModelFitter with a hand-built "
-                    "model; see tutorials/internal_validation_mxl_swissmetro.py."
-                )
-            warnings.warn(
-                "model_type='MXL' but no random_parameters; this will estimate "
-                "plain MNL. Use FunctionModelFitter for genuine mixed logit.",
-                UserWarning,
-                stacklevel=2,
-            )
+        from dcmbench.specs import v1
+
+        v1.check_supported(spec)
         self.spec = spec
         self.choice_column = choice_column
         self.database_name = database_name
         self.quiet = quiet
 
     def __call__(self, train_df: pd.DataFrame) -> BiogemeFittedModel:
-        import biogeme.database as db
+        from dcmbench.engines.biogeme import BiogemeEstimator
+        from dcmbench.specs import v1
 
-        from dcmbench.adapters.universal_biogeme_adapter import UniversalBiogemeAdapter
-        from dcmbench.model_specifications import build_model_from_spec
-
-        database = db.Database(self.database_name, train_df.copy())
-        biogeme_kwargs = _QUIET_BIOGEME_PARAMETERS if self.quiet else {}
-        model = build_model_from_spec(self.spec, database, **biogeme_kwargs)
-
-        # Expose utilities/availability/nests for UniversalBiogemeAdapter OOS predict
-        if hasattr(model, "_utilities"):
-            model._dcmbench_utilities = model._utilities
-        if hasattr(model, "_availabilities"):
-            model._dcmbench_availability = model._availabilities
-        if getattr(model, "_nests", None) is not None:
-            model._dcmbench_nests = model._nests
-            model.nests = model._nests
-
-        results = model.estimate()
-        adapter = UniversalBiogemeAdapter(
-            model, results, database=database, name=getattr(model, "modelName", "model")
-        )
-        return BiogemeFittedModel(
-            adapter=adapter,
-            results=results,
-            availabilities=getattr(model, "_availabilities", None),
-            utilities=getattr(model, "_utilities", None),
-            choice_column=self.choice_column,
-        )
+        spec, problem = v1.convert(self.spec, choice_column=self.choice_column)
+        model = BiogemeEstimator(spec, problem)(train_df)
+        return BiogemeFittedModel(model, choice_column=self.choice_column)
 
 
 def fitter_from_spec(

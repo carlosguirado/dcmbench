@@ -70,7 +70,10 @@ def _split(protocol: Holdout, data: pd.DataFrame, problem):
         splitter = GroupShuffleSplit(n_splits=1, test_size=protocol.test_size, random_state=protocol.seed)
         train_idx, test_idx = next(splitter.split(data, groups=data[problem.group_column]))
         return data.iloc[train_idx], data.iloc[test_idx]
-    stratify = data[problem.choice_column] if protocol.stratify else None
+    # Stratify on the alternative's position in the choice problem, so the split
+    # does not depend on how a dataset happens to code its choices.
+    position = {alt: i for i, alt in enumerate(problem.alternatives)}
+    stratify = problem.choices(data).map(position).to_numpy() if protocol.stratify else None
     return train_test_split(data, test_size=protocol.test_size, stratify=stratify, random_state=protocol.seed)
 
 
@@ -195,6 +198,12 @@ def evaluate(
     else:
         raise TypeError(f"unknown protocol {protocol!r}; use Holdout, CrossValidation or Bootstrap")
 
+    behavioral = [a for a in analyses if a != "scenarios" or scenarios]
+    if getattr(model, "static", False) and behavioral:
+        raise ValueError(
+            "this model's probabilities are precomputed and cannot respond to changed data; "
+            f"run it with analyses=() instead of {tuple(behavioral)}"
+        )
     check_deterministic(model, analysis_data, problem)
     fit = _fit(model, fit_data, problem)
 
