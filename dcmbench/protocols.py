@@ -46,7 +46,10 @@ class MarginalUtilities:
     MNL, K classes for latent class, R simulation draws for mixed logit.
     ``weights`` are prior weights per observation (rows sum to 1);
     ``chosen_prob`` (P(observed choice | draw)) lets DCMBench compute
-    posterior weights. NaN marks an alternative without the attribute.
+    posterior weights. ``panel=True`` means draw r is the same person-level
+    draw for all of a respondent's observations, so posteriors multiply
+    ``chosen_prob`` within ``ChoiceProblem.group_column``. NaN marks an
+    alternative without the attribute.
     """
 
     values: np.ndarray
@@ -54,6 +57,7 @@ class MarginalUtilities:
     alternatives: Sequence[str]
     attributes: Sequence[str]
     chosen_prob: Optional[np.ndarray] = None
+    panel: bool = False
 
     def __post_init__(self):
         self.values = np.asarray(self.values, dtype=float)

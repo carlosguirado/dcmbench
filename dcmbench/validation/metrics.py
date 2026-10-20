@@ -241,6 +241,30 @@ def calculate_clearness_metrics(
     }
 
 
+def calculate_classification_metrics(
+    results: pd.DataFrame,
+    choice_column: str,
+    choice_mapping: ChoiceMapping,
+) -> Dict[str, float]:
+    """
+    Argmax-based macro F1 and macro recall over all alternatives.
+
+    Balanced metrics that are sensitive to minority alternatives; alternatives
+    never chosen nor predicted contribute 0 (sklearn ``zero_division=0``).
+    """
+    from sklearn.metrics import f1_score, recall_score
+
+    alt_cols = list(dict.fromkeys(choice_mapping.values()))
+    position = {alt: i for i, alt in enumerate(alt_cols)}
+    observed = np.array([position[choice_mapping[c]] for c in results[choice_column]])
+    predicted = np.argmax(results[alt_cols].to_numpy(dtype=float), axis=1)
+    labels = list(range(len(alt_cols)))
+    return {
+        "macro_f1": float(f1_score(observed, predicted, labels=labels, average="macro", zero_division=0)),
+        "macro_recall": float(recall_score(observed, predicted, labels=labels, average="macro", zero_division=0)),
+    }
+
+
 def get_performance_metrics(
     results: pd.DataFrame,
     choice_column: str,
@@ -252,6 +276,7 @@ def get_performance_metrics(
         "pct_correct_predictions": calculate_prediction_accuracy(
             results, choice_column, choice_mapping
         ),
+        **calculate_classification_metrics(results, choice_column, choice_mapping),
         "fitting_factor": calculate_fitting_factor(
             results, choice_column, choice_mapping
         ),

@@ -65,12 +65,12 @@ dcmbench/
     apollo.py         #   Rscript bridge (Phase 8, optional)
   evaluation/
     run.py            # evaluate(): one call -> full multi-dimensional result
-    behavioral/
-      perturb.py      #   attribute perturbation engine (shared by everything below)
-      elasticity.py   #   point/arc, own/cross, individual/aggregate
-      vot.py          #   VOT distributions (§5.2)
-      scenarios.py    #   policy scenarios, predicted shares, diversion ratios
-      regularity.py   #   behavioral regularity diagnostics
+    predict.py        # the checked model boundary; determinism check
+    perturb.py        # attribute perturbation engine (shared by everything below)
+    elasticity.py     # point elasticities, own/cross, individual/aggregate
+    vot.py            # VOT distributions (§5.2)
+    scenarios.py      # policy scenarios, predicted shares, diversion, arc elasticities
+    regularity.py     # behavioral regularity (§5.4)
   validation/         # hphoebe's module, kept as is (CV, bootstrap, OOS metrics)
   reporting/
     card.py           # specification card (machine-readable) + rendered view
@@ -309,6 +309,11 @@ Progress:
   - What was built: `dcmbench.problem`, `dcmbench.data` (Swissmetro, ModeCanada, LPMC), `dcmbench.protocols`, `dcmbench.results`, and `n_params: int | None` in `validation/`.
   - Tests: offline tests, plus opt-in network tests (`DCMBENCH_NETWORK_TESTS=1`) that reproduce the 0.1.x benchmark samples, including the exact LPMC rows.
   - Design: `docs/design/phase1-core.md`.
+- **Phase 2: done 2026-10-20.**
+  - What was built: `dcmbench.evaluation`, covering `evaluate()` with holdout, CV and bootstrap; elasticities; VOT by both routes; scenarios and sensitivity curves; and behavioral regularity. Macro F1 and recall were added to the validation metrics.
+  - Tests: known-truth tests (MNL closed forms, normal-MXL negative-VOT share, IIA diversion, regularity counts).
+  - Real-data check: a throwaway MNL reproduces the 0.1.x Swissmetro baseline exactly.
+  - Design: `docs/design/phase2-evaluation.md`.
 
 Ordering note: benchmark scripts can be drafted against the `v1` branch from Phase 4 on. They need 1.0.0 to be published only if results must cite a release.
 
