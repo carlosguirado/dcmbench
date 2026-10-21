@@ -12,6 +12,31 @@ PYTHONPATH=third_party/rumboost python examples/rumboost_benchmark.py
 
 The default protocol is an 80/20 holdout stratified on the choice. It splits by observation, so a respondent's choices can fall on both sides. For panel data (Swissmetro has 9 choices per respondent), use `--protocol cv`, which keeps respondents together; see "Respondent leakage" below.
 
+## On your own data
+
+Every model here works on any dataset. Wrap your table, describe it once, and benchmark:
+
+```python
+import dcmbench.data
+from dcmbench import Attribute, ChoiceProblem
+from dcmbench.evaluation import CrossValidation, evaluate
+from common import ModelInputs
+import tastenet, reslogit
+
+problem = ChoiceProblem(name="my survey", alternatives=("bus", "car", "bike"), choice_column="mode",
+                        choice_codes={1: "bus", 2: "car", 3: "bike"}, availability={"car": "car_av"},
+                        attributes={"time": Attribute({"bus": "bus_tt", "car": "car_tt", "bike": "bike_tt"}, unit="minute", kind="time"),
+                                    "cost": Attribute({"bus": "bus_fare", "car": "car_cost"}, unit="EUR", kind="cost")},
+                        group_column="person_id")
+dataset = dcmbench.data.from_frame(my_table, problem, name="my survey")
+inputs = ModelInputs.from_dataset(dataset, reference="car", characteristics=["age", "income"])
+
+for name, fitter in {"TasteNet": tastenet.fitter(dataset, inputs), "ResLogit": reslogit.fitter(dataset, inputs)}.items():
+    result = evaluate(fitter, dataset, name=name, protocol=CrossValidation(n_splits=5))
+```
+
+Specs (`BiogemeEstimator`, `TorchEstimator`), `RumboostFitter` and `SklearnFitter` take the same `problem`, so all of them are evaluated under identical splits and metrics. `tests/test_examples_own_data.py` runs this path on a user-supplied table.
+
 ## Benchmark specifications
 
 [`specs/`](specs/) holds the spec v2 files for the classical benchmark models:

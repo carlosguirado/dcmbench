@@ -37,7 +37,7 @@ def main():
     protocol, datasets = common.protocol_from_args(__doc__.splitlines()[1])
     for name in datasets:
         dataset = common.benchmark_dataset(name)
-        features = list(dict.fromkeys(common.module_columns(dataset) + common.characteristics_present(dataset)))
+        features = common.benchmark_inputs(dataset).columns
         for label, build in MODELS.items():
             fitter = SklearnFitter(build(), dataset.problem, features, piecewise_constant=PIECEWISE[label])
             result = evaluate(fitter, dataset, name=label, protocol=protocol, vot_route="B",

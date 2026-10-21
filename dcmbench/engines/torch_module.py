@@ -162,21 +162,25 @@ class TorchModuleFitter:
     Fitter: ``TorchModuleFitter(build, problem, columns)(train) -> TorchModuleModel``.
 
     - ``build()`` returns a fresh, untrained ``torch.nn.Module`` (called once per fit, after seeding).
-    - ``columns`` are the data columns passed to the module; ``standardize`` lists those to scale by
-      training mean and standard deviation (inside the autograd graph, so marginal utilities stay in
-      raw units).
+    - ``columns`` are the data columns passed to the module. ``standardize`` lists those to centre and
+      scale by their training mean and standard deviation; ``rescale`` lists those to divide by their
+      training standard deviation only (keeping zero at zero, as linear utilities need). Both happen
+      inside the autograd graph, so marginal utilities stay in raw units.
     - ``n_params="count"`` reports the number of trainable parameters; pass ``None`` when no
       meaningful count exists.
     """
 
     def __init__(self, build: Callable[[], object], problem: ChoiceProblem, columns: Sequence[str], *,
-                 standardize: Sequence[str] = (), training: Training = Training(), seed: int = 0,
-                 n_params: Union[str, int, None] = "count", name: str = "torch module"):
-        unknown = set(standardize) - set(columns)
+                 standardize: Sequence[str] = (), rescale: Sequence[str] = (), training: Training = Training(),
+                 seed: int = 0, n_params: Union[str, int, None] = "count", name: str = "torch module"):
+        unknown = (set(standardize) | set(rescale)) - set(columns)
         if unknown:
-            raise ValueError(f"standardize names columns not passed to the module: {sorted(unknown)}")
+            raise ValueError(f"standardize/rescale name columns not passed to the module: {sorted(unknown)}")
+        if set(standardize) & set(rescale):
+            raise ValueError("a column cannot be both standardized and rescaled")
         self.build, self.problem, self.columns = build, problem, list(columns)
-        self.standardize, self.training, self.seed = list(standardize), training, seed
+        self.standardize, self.rescale = list(standardize), list(rescale)
+        self.training, self.seed = training, seed
         self.n_params, self.name = n_params, name
 
     def _split(self, train: pd.DataFrame):
@@ -203,9 +207,10 @@ class TorchModuleFitter:
 
         torch.manual_seed(self.seed)
         scaling = {}
-        for c in self.standardize:
+        for c in self.standardize + self.rescale:
             values = fit_data[c].to_numpy(dtype=float)
-            scaling[c] = (float(values.mean()), float(values.std()) or 1.0)
+            centre = float(values.mean()) if c in self.standardize else 0.0
+            scaling[c] = (centre, float(values.std()) or 1.0)
         module = self.build().double()
         model = TorchModuleModel(module, self.problem, self.columns, scaling, None, {}, self.name)
         module.train()

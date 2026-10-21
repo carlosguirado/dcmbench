@@ -74,6 +74,16 @@ def test_marginal_utilities_by_autograd_are_in_raw_units():
     np.testing.assert_allclose(vot.loc["sm", "mean"], 60 * mu.values[0, 0, 1, 0] / b_cost[0, 1], rtol=1e-8)
 
 
+def test_rescaled_columns_keep_zero_and_raw_unit_marginal_utilities():
+    data = _synthetic(n_people=200, seed=16)
+    fit = TorchModuleFitter(LinearLogit, PROBLEM, COLUMNS, rescale=COLUMNS, training=LBFGS)(data)
+    assert all(centre == 0.0 for centre, _ in fit.scaling.values())
+    mu = fit.marginal_utilities(data, ["time"])
+    np.testing.assert_allclose(mu.values[:, 0, 2, 0], fit.module.b[0].item() / fit.scaling["CAR_TT"][1], rtol=1e-10)
+    with pytest.raises(ValueError, match="both standardized and rescaled"):
+        TorchModuleFitter(LinearLogit, PROBLEM, COLUMNS, standardize=COLUMNS[:1], rescale=COLUMNS[:1])
+
+
 def test_unavailable_alternatives_get_zero_probability_and_predictions_are_deterministic():
     data = _synthetic(n_people=100, seed=13)
     fit = TorchModuleFitter(LinearLogit, PROBLEM, COLUMNS, training=LBFGS)(data)

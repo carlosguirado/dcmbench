@@ -106,6 +106,17 @@ def test_derive_adds_columns_with_provenance(fake_dataset):
         ds.derive("again", A_TT=lambda f: f.A_TT)
 
 
+def test_from_frame_wraps_user_data():
+    frame = pd.DataFrame({"CHOICE": [1, 2, 1], "A_TT": [10.0, 20.0, 30.0], "B_TT": [5.0, 5.0, 5.0]})
+    ds = data.from_frame(frame, PROBLEM, name="mine", citation="me (2026)")
+    assert len(ds) == 3 and ds.info.data_version == "user-supplied" and ds.info.citation == "me (2026)"
+    assert ds.provenance[0].params["sha256"] == ds.info.sha256
+    assert data.from_frame(frame.copy(), PROBLEM, name="again").info.sha256 == ds.info.sha256
+    assert data.from_frame(frame.assign(A_TT=[1.0, 2.0, 3.0]), PROBLEM, name="x").info.sha256 != ds.info.sha256
+    with pytest.raises(ValueError, match="choice codes"):
+        data.from_frame(frame.assign(CHOICE=[1, 2, 9]), PROBLEM, name="bad")
+
+
 def test_unknown_dataset_lists_available():
     with pytest.raises(KeyError, match="swissmetro"):
         data.load("no_such_dataset")

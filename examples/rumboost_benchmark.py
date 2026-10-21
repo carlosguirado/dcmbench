@@ -16,12 +16,13 @@ from dcmbench.engines.rumboost import RumboostFitter
 from dcmbench.evaluation import evaluate
 
 
-def fitter(dataset, seed: int = 0):
+def fitter(dataset, inputs, seed: int = 0):
+    """Each alternative: its own time and cost (monotone non-increasing), plus the characteristics."""
     problem = dataset.problem
-    characteristics = common.characteristics_present(dataset)
-    own = {alt: [problem.attributes[a].columns[alt] for a in ("time", "cost") if alt in problem.attributes[a].columns]
-           for alt in problem.alternatives}
-    variables = {alt: own[alt] + characteristics for alt in problem.alternatives}
+    own = {alt: [problem.attributes[a].columns[alt] for a in (inputs.time_attribute, inputs.cost_attribute)
+                 if alt in problem.attributes[a].columns] for alt in problem.alternatives}
+    variables = {alt: list(dict.fromkeys(own[alt] + ([inputs.cost_multiplier[alt]] if alt in inputs.cost_multiplier else [])
+                                         + list(inputs.characteristics))) for alt in problem.alternatives}
     monotone = {column: -1 for columns in own.values() for column in columns}
     return RumboostFitter(problem, variables, monotone, learning_rate=0.1, max_depth=1, seed=seed)
 
@@ -30,7 +31,7 @@ def main():
     protocol, datasets = common.protocol_from_args(__doc__.splitlines()[1])
     for name in datasets:
         dataset = common.benchmark_dataset(name)
-        result = evaluate(fitter(dataset), dataset, name="RUMBoost", protocol=protocol, vot_route="B",
+        result = evaluate(fitter(dataset, common.benchmark_inputs(dataset)), dataset, name="RUMBoost", protocol=protocol, vot_route="B",
                           scenarios=[common.car_cost_scenario(name)])
         common.report(result)
 

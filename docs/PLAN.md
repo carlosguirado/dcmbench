@@ -389,4 +389,5 @@ These come from a review of the 0.1.x benchmark scripts (00–04, not in this re
 | 2026-10-20 | Private working materials kept out of the repo (`.gitignore`). |
 | 2026-10-20 | Phase 1 design accepted (`docs/design/phase1-core.md`): data kept in original units, with scaling in specs; central availability masking for engines that can't handle it; GitHub data pinned by commit (Zenodo decided at Phase 6); Biogeme becomes an optional extra; VOT Route A defined via marginal utilities; datasets named `swissmetro`, `modecanada` and `lpmc` (alias `ltds`). |
 | 2026-10-20 | The Chicago mode-choice dataset is not added to the analysis. |
+| 2026-10-20 | Hybrid models (TasteNet, ResLogit, latent class) stay as examples, written to work on any dataset through `ModelInputs`; `dcmbench.data.from_frame()` wraps user data. A side-by-side `compare()` comes with Phase 5. |
 | 2026-10-20 | Corrected benchmark specs: nest parameters bounded to [1, 10]; the CUSTOM business effect uses PURPOSE == 3; CUSTOM income enters as cost interactions for the 50–100k, >100k and unknown brackets (reference: under 50k); MXL uses 1,000 Halton draws, with panel structure for Swissmetro and LPMC. |

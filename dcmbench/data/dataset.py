@@ -126,3 +126,31 @@ class Dataset:
         """Check the table against the choice problem; returns self for chaining."""
         self.problem.validate(self.frame)
         return self
+
+
+def from_frame(
+    frame: pd.DataFrame,
+    problem: ChoiceProblem,
+    name: str,
+    *,
+    description: str = "",
+    citation: str = "",
+    source_url: str = "",
+    license: Optional[str] = None,
+) -> Dataset:
+    """
+    Wrap your own table as a ``Dataset`` so it can be evaluated like the built-in ones.
+
+    The table is validated against ``problem``. Its content hash (pandas row
+    hashes, sha256) is recorded so results can be traced to the exact data.
+    """
+    import hashlib
+
+    rows = pd.util.hash_pandas_object(frame, index=False).to_numpy()
+    digest = hashlib.sha256(rows.tobytes() + ",".join(map(str, frame.columns)).encode()).hexdigest()
+    info = DatasetInfo(description=description, citation=citation, source_url=source_url, license=license,
+                       data_version="user-supplied", sha256=digest, url="")
+    step = Step("load", "user-supplied table", {"sha256": digest, "columns": list(map(str, frame.columns))},
+                None, len(frame))
+    dataset = Dataset(name=name, frame=frame.reset_index(drop=True), problem=problem, info=info, provenance=(step,))
+    return dataset.validate()
