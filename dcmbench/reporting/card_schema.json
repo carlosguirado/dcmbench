@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/carlosguirado/dcmbench/specification-card/0.1.0",
+  "title": "DCMBench specification card (prototype)",
+  "description": "A machine-readable summary of what one model specification implies on one dataset: statistical fit, out-of-sample prediction, economic valuations, policy response and behavioral regularity, with provenance. Prototype for community discussion; fields will change.",
+  "type": "object",
+  "required": ["card_version", "model", "data", "protocol", "software", "fit", "prediction", "value_of_time", "policy", "behavioral_regularity", "flags"],
+  "additionalProperties": false,
+  "properties": {
+    "card_version": {"const": "0.1.0"},
+    "model": {
+      "type": "object",
+      "required": ["name", "engine", "details"],
+      "properties": {
+        "name": {"type": "string"},
+        "engine": {"type": "string"},
+        "spec_sha256": {"type": ["string", "null"]},
+        "details": {"type": "object"}
+      }
+    },
+    "data": {
+      "type": "object",
+      "required": ["dataset", "data_version", "sha256", "n_obs", "steps"],
+      "properties": {
+        "dataset": {"type": "string"},
+        "data_version": {"type": "string"},
+        "sha256": {"type": "string"},
+        "citation": {"type": "string"},
+        "n_obs": {"type": "integer", "minimum": 0},
+        "steps": {"type": "array", "items": {"type": "object", "required": ["action", "description"]}}
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "required": ["prediction", "behavioral_analyses_on"],
+      "properties": {
+        "prediction": {"type": ["object", "null"], "required": ["name"], "properties": {"name": {"enum": ["holdout", "cross_validation", "bootstrap"]}}},
+        "behavioral_analyses_on": {"type": "string"},
+        "seeds": {"type": "object"}
+      }
+    },
+    "software": {"type": "object", "additionalProperties": {"type": "string"}},
+    "fit": {
+      "type": "object",
+      "required": ["n_obs", "loglikelihood", "null_loglikelihood", "n_params", "rho_sq", "rho_bar_sq", "converged", "not_applicable"],
+      "properties": {
+        "n_obs": {"type": "integer"},
+        "loglikelihood": {"type": "number"},
+        "null_loglikelihood": {"type": ["number", "null"]},
+        "n_params": {"type": ["integer", "null"]},
+        "rho_sq": {"type": ["number", "null"]},
+        "rho_bar_sq": {"type": ["number", "null"]},
+        "converged": {"type": "boolean"},
+        "not_applicable": {"type": "object", "additionalProperties": {"type": "string"}},
+        "notes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "prediction": {
+      "type": ["object", "null"],
+      "required": ["metrics"],
+      "properties": {
+        "metrics": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["estimate", "spread", "how"],
+            "properties": {"estimate": {"type": ["number", "null"]}, "spread": {"type": ["number", "null"]}, "how": {"type": "string"}}
+          }
+        }
+      }
+    },
+    "value_of_time": {
+      "type": ["object", "null"],
+      "required": ["route", "currency_per_hour", "by_alternative"],
+      "properties": {
+        "route": {"enum": ["A-population", "A-posterior", "B"]},
+        "currency_per_hour": {"type": "string"},
+        "upper_bound": {"type": ["number", "null"]},
+        "by_alternative": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["alternative", "n_obs", "mean", "q05", "q50", "q95", "share_negative"],
+            "properties": {"alternative": {"type": "string"}, "n_obs": {"type": "integer"}}
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["scenario", "perturbations", "shares"],
+        "properties": {
+          "scenario": {"type": "string"},
+          "perturbations": {"type": "array", "items": {"type": "string"}},
+          "shares": {"type": "array", "items": {"type": "object", "required": ["alternative", "share_base", "share_scenario", "pct_change"]}}
+        }
+      }
+    },
+    "behavioral_regularity": {
+      "type": ["object", "null"],
+      "required": ["settings", "pairs"],
+      "properties": {
+        "settings": {"type": "object"},
+        "pairs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["alternative", "attribute", "definition", "strong", "weak", "n_obs"],
+            "properties": {"definition": {"enum": ["feng2024", "extension"]}}
+          }
+        }
+      }
+    },
+    "flags": {
+      "type": "array",
+      "items": {"type": "object", "required": ["section", "message"], "properties": {"section": {"type": "string"}, "message": {"type": "string"}}}
+    }
+  }
+}

@@ -5,7 +5,7 @@ from __future__ import annotations
 import platform
 from dataclasses import dataclass
 from importlib import metadata
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -14,7 +14,7 @@ from dcmbench.data.dataset import Dataset
 from dcmbench.evaluation.elasticity import point_elasticities
 from dcmbench.evaluation.predict import check_deterministic, predict
 from dcmbench.evaluation.regularity import behavioral_regularity
-from dcmbench.evaluation.scenarios import Scenario, run_scenario
+from dcmbench.evaluation.scenarios import Scenario, run_scenario, sensitivity as sensitivity_curve
 from dcmbench.evaluation.vot import vot_from_marginal_utilities, vot_from_probabilities
 from dcmbench.protocols import FittedModel, ProvidesMarginalUtilities
 from dcmbench.results import AnalysisResult, EvaluationResult, FitResult, Provenance
@@ -81,13 +81,22 @@ def _fit(model, data: pd.DataFrame, problem) -> FitResult:
     probabilities = predict(model, data, problem)
     frame = build_scoring_frame(data, probabilities, problem.choice_column)
     loglikelihood = float(np.sum(observation_loglikelihoods(frame, problem.choice_column, problem.choice_mapping)))
-    return FitResult.from_loglikelihoods(
+    fit = FitResult.from_loglikelihoods(
         n_obs=len(data),
         loglikelihood=loglikelihood,
         null_loglikelihood=float(model.null_loglikelihood(data)),
         n_params=model.n_params,
         converged=bool(model.converged),
     )
+    spec = getattr(model, "spec", None)
+    if spec is not None and spec.draws is not None and spec.draws.panel:
+        fit.notes.append(
+            "log-likelihood is the sum over observations of log P(choice) with the respondent's draws integrated "
+            "out per observation, comparable across models; the panel likelihood maximized in estimation "
+            f"(engine-reported: {getattr(model, 'engine_details', {}).get('engine_loglikelihood', 'n/a')}) "
+            "treats a respondent's choices jointly"
+        )
+    return fit
 
 
 def _holdout_prediction(model, test: pd.DataFrame, problem, protocol: Holdout) -> AnalysisResult:
@@ -156,6 +165,8 @@ def evaluate(
     vot_route: str = "auto",
     vot_posterior: bool = False,
     vot_upper_bound: Optional[float] = None,
+    keep_vot_samples: bool = False,
+    sensitivity: Optional[Tuple[str, Optional[Sequence[str]], Sequence[float]]] = None,
 ) -> EvaluationResult:
     """
     Evaluate one model on one dataset along every dimension.
@@ -169,7 +180,10 @@ def evaluate(
     in-sample.
 
     ``vot_route``: ``"auto"`` (Route A when the model provides marginal
-    utilities, else B), ``"A"`` or ``"B"``. Nothing falls back silently:
+    utilities, else B), ``"A"`` or ``"B"``; ``keep_vot_samples`` stores the
+    individual VOT values (needed for distribution plots). ``sensitivity``
+    is ``(attribute, alternatives, multipliers)`` for a share curve, e.g.
+    ``("cost", ["car"], [0.5, 1.0, 1.5])``. Nothing falls back silently:
     any failure raises.
     """
     unknown = set(analyses) - set(ANALYSES)
@@ -198,7 +212,7 @@ def evaluate(
     else:
         raise TypeError(f"unknown protocol {protocol!r}; use Holdout, CrossValidation or Bootstrap")
 
-    behavioral = [a for a in analyses if a != "scenarios" or scenarios]
+    behavioral = [a for a in analyses if a != "scenarios" or scenarios] + (["sensitivity"] if sensitivity else [])
     if getattr(model, "static", False) and behavioral:
         raise ValueError(
             "this model's probabilities are precomputed and cannot respond to changed data; "
@@ -218,13 +232,14 @@ def evaluate(
             route = "A" if isinstance(model, ProvidesMarginalUtilities) else "B"
         if route == "A":
             report["vot"] = vot_from_marginal_utilities(model, analysis_data, problem, time_attribute, cost_attribute,
-                                                        posterior=vot_posterior, upper_bound=vot_upper_bound)
+                                                        posterior=vot_posterior, upper_bound=vot_upper_bound,
+                                                        keep_samples=keep_vot_samples)
         elif route == "B":
             # Step functions barely respond to tiny steps: use 1/200 of the range (as for regularity).
             step_fraction = 1 / 200 if getattr(model, "piecewise_constant", False) else 1e-4
             report["vot"] = vot_from_probabilities(model, analysis_data, problem, time_attribute, cost_attribute,
                                                    step_fraction=step_fraction, range_data=data,
-                                                   upper_bound=vot_upper_bound)
+                                                   upper_bound=vot_upper_bound, keep_samples=keep_vot_samples)
         else:
             raise ValueError("vot_route must be 'auto', 'A' or 'B'")
     if "scenarios" in analyses:
@@ -232,6 +247,9 @@ def evaluate(
             report[f"scenario: {scenario.name}"] = run_scenario(model, analysis_data, problem, scenario)
     if "regularity" in analyses:
         report["regularity"] = behavioral_regularity(model, analysis_data, problem, range_data=data)
+    if sensitivity is not None:
+        attribute, alternatives, multipliers = sensitivity
+        report["sensitivity"] = sensitivity_curve(model, analysis_data, problem, attribute, alternatives, multipliers)
 
     for result in report.values():
         result.settings.setdefault("evaluated_on", evaluated_on if result.kind != "prediction" else result.settings["protocol"])

@@ -12,6 +12,23 @@ PYTHONPATH=third_party/rumboost python examples/rumboost_benchmark.py
 
 The default protocol is an 80/20 holdout stratified on the choice. It splits by observation, so a respondent's choices can fall on both sides. For panel data (Swissmetro has 9 choices per respondent), use `--protocol cv`, which keeps respondents together; see "Respondent leakage" below.
 
+## The full benchmark
+
+```
+PYTHONPATH=third_party/rumboost python examples/benchmark.py --out results
+```
+
+`benchmark.py` runs every model family on each dataset under 5-fold, respondent-grouped cross-validation. The families are:
+- the specs in `specs/`: MNL, NL, MXL, CUSTOM;
+- TasteNet, ResLogit, latent class;
+- RUMBoost;
+- logistic regression, MLP, random forest, gradient boosting.
+
+It writes to `results/`:
+- a specification card per model (JSON and Markdown);
+- a comparison table per dataset (CSV);
+- VOT distribution, car-cost sensitivity and fit-vs-prediction figures.
+
 ## On your own data
 
 Every model here works on any dataset. Wrap your table, describe it once, and benchmark:

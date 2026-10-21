@@ -56,6 +56,7 @@ class FitResult:
     rho_sq: Optional[float] = None
     rho_bar_sq: Optional[float] = None
     not_applicable: Dict[str, str] = field(default_factory=dict)
+    notes: List[str] = field(default_factory=list)
 
     @classmethod
     def from_loglikelihoods(

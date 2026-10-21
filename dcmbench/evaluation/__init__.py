@@ -7,6 +7,7 @@ policy scenarios and behavioral regularity.
                       scenarios=[Scenario("car cost x1.5", [Perturbation("cost", ("car",), multiply=1.5)])])
 """
 
+from dcmbench.evaluation.compare import Comparison, compare
 from dcmbench.evaluation.elasticity import point_elasticities
 from dcmbench.evaluation.perturb import Perturbation, shift
 from dcmbench.evaluation.predict import NonDeterministicModelError, check_deterministic, predict
@@ -18,6 +19,7 @@ from dcmbench.evaluation.vot import vot_from_marginal_utilities, vot_from_probab
 __all__ = [
     "ANALYSES",
     "Bootstrap",
+    "Comparison",
     "CrossValidation",
     "Holdout",
     "NonDeterministicModelError",
@@ -25,6 +27,7 @@ __all__ = [
     "Scenario",
     "behavioral_regularity",
     "check_deterministic",
+    "compare",
     "evaluate",
     "market_shares",
     "point_elasticities",
