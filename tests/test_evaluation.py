@@ -352,6 +352,14 @@ def test_regularity_flags_attributes_the_model_ignores():
     assert any("does not use it" in flag for flag in result.flags)
 
 
+def test_regularity_of_a_constant_attribute_is_not_applicable():
+    data = _data().assign(TRAIN_CO=7.0)
+    result = behavioral_regularity(LinearLogit(**MODERATE), data, PROBLEM, attributes=["cost"])
+    train = result.summary.set_index("alternative").loc["train"]
+    assert np.isnan(train["strong"]) and train["n_obs"] == 0
+    assert any("constant in the data" in flag for flag in result.flags)
+
+
 def test_regularity_of_a_piecewise_constant_model_is_flagged():
     result = behavioral_regularity(SteppedCost(), _data(), PROBLEM, attributes=["cost"])
     train = result.summary.set_index("alternative").loc["train"]

@@ -220,8 +220,11 @@ def evaluate(
             report["vot"] = vot_from_marginal_utilities(model, analysis_data, problem, time_attribute, cost_attribute,
                                                         posterior=vot_posterior, upper_bound=vot_upper_bound)
         elif route == "B":
+            # Step functions barely respond to tiny steps: use 1/200 of the range (as for regularity).
+            step_fraction = 1 / 200 if getattr(model, "piecewise_constant", False) else 1e-4
             report["vot"] = vot_from_probabilities(model, analysis_data, problem, time_attribute, cost_attribute,
-                                                   range_data=data, upper_bound=vot_upper_bound)
+                                                   step_fraction=step_fraction, range_data=data,
+                                                   upper_bound=vot_upper_bound)
         else:
             raise ValueError("vot_route must be 'auto', 'A' or 'B'")
     if "scenarios" in analyses:

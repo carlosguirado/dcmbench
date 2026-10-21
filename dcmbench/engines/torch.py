@@ -48,9 +48,9 @@ class TorchEstimator:
 
         def unit_ll(theta):
             values = {**fixed, **{name: theta[i] for i, name in enumerate(free)}}
-            per_draw = compute.probabilities_per_draw(spec, problem, inputs.columns, inputs.n_obs, values,
-                                                      inputs.draws, inputs.available, backend)
-            return compute.unit_loglikelihoods(per_draw, inputs.chosen, inputs.units, inputs.n_units,
+            log_per_draw = compute.log_probabilities_per_draw(spec, problem, inputs.columns, inputs.n_obs, values,
+                                                              inputs.draws, inputs.available, backend)
+            return compute.unit_loglikelihoods(log_per_draw, inputs.chosen, inputs.units, inputs.n_units,
                                                inputs.panel, backend)
 
         def objective(x):

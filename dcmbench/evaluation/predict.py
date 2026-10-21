@@ -32,17 +32,20 @@ def predict(model, data: pd.DataFrame, problem: ChoiceProblem) -> pd.DataFrame:
     return probabilities.set_axis(data.index)
 
 
-def check_deterministic(model, data: pd.DataFrame, problem: ChoiceProblem, n_rows: int = 50) -> None:
+def check_deterministic(model, data: pd.DataFrame, problem: ChoiceProblem, n_rows: int = 50,
+                        tolerance: float = 1e-12) -> None:
     """
-    Raise unless two predictions on the same rows are identical.
+    Raise unless two predictions on the same rows agree to ``tolerance``.
 
     Finite-difference analyses compare predictions on nearly identical data;
-    simulated models must reuse their draws (common random numbers).
+    simulated models must reuse their draws (common random numbers). The
+    tolerance admits floating-point noise from parallel reductions (e.g.
+    multi-threaded random forests), which is far below simulation noise.
     """
     sample = data.iloc[:n_rows]
     first = predict(model, sample, problem).to_numpy()
     second = predict(model, sample, problem).to_numpy()
-    if not np.array_equal(first, second):
+    if not np.allclose(first, second, rtol=0.0, atol=tolerance):
         raise NonDeterministicModelError(
             "predict_probabilities returned different values for identical data. "
             "Simulated models must reuse the same draws on every call."

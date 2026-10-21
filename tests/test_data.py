@@ -98,6 +98,14 @@ def test_filter_subsample_prepare_return_new_datasets(fake_dataset):
         ds.subsample(10, seed=1)
 
 
+def test_derive_adds_columns_with_provenance(fake_dataset):
+    ds = data.load("fake").derive("long trip", LONG=lambda f: (f.A_TT > 30).astype(int))
+    assert ds.frame["LONG"].tolist() == [0, 0, 1, 1, 1]
+    assert ds.provenance[-1].action == "derive" and ds.provenance[-1].params == {"columns": ["LONG"]}
+    with pytest.raises(ValueError, match="already exist"):
+        ds.derive("again", A_TT=lambda f: f.A_TT)
+
+
 def test_unknown_dataset_lists_available():
     with pytest.raises(KeyError, match="swissmetro"):
         data.load("no_such_dataset")

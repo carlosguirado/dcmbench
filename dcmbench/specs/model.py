@@ -80,9 +80,9 @@ class SpecModel:
 
     def loglikelihood(self, data: pd.DataFrame) -> float:
         inputs = compute.Inputs(self.spec, self.problem, data, NUMPY)
-        per_draw = compute.probabilities_per_draw(self.spec, self.problem, inputs.columns, inputs.n_obs, self.values,
-                                                  inputs.draws, inputs.available, NUMPY)
-        return float(compute.unit_loglikelihoods(per_draw, inputs.chosen, inputs.units, inputs.n_units,
+        log_per_draw = compute.log_probabilities_per_draw(self.spec, self.problem, inputs.columns, inputs.n_obs,
+                                                          self.values, inputs.draws, inputs.available, NUMPY)
+        return float(compute.unit_loglikelihoods(log_per_draw, inputs.chosen, inputs.units, inputs.n_units,
                                                  inputs.panel, NUMPY).sum())
 
     def coefficients(self) -> pd.DataFrame:

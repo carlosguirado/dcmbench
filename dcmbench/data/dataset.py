@@ -103,6 +103,19 @@ class Dataset:
         step = Step("subsample", f"random sample of {n} rows", {"n": n, "seed": seed}, len(self.frame), n)
         return self._with(self.frame.sample(n=n, random_state=seed), step)
 
+    def derive(self, label: str, **columns: Callable[[pd.DataFrame], Any]) -> "Dataset":
+        """
+        Add columns computed from the table, e.g. dummies:
+        ``ds.derive("purpose dummies", HBW=lambda f: (f.purpose == "HBW").astype(int))``.
+        Existing columns cannot be overwritten.
+        """
+        clash = set(columns) & set(self.frame.columns)
+        if clash:
+            raise ValueError(f"columns already exist: {sorted(clash)}")
+        frame = self.frame.assign(**{name: function(self.frame) for name, function in columns.items()})
+        step = Step("derive", label, {"columns": sorted(columns)}, len(self.frame), len(frame))
+        return self._with(frame, step)
+
     def prepare(self, name: str) -> "Dataset":
         """Apply a named preparation, e.g. ``"benchmark"``."""
         if name not in self.preparations:

@@ -55,8 +55,14 @@ def behavioral_regularity(
         for alternative in problem.attributes[attribute].columns:
             column = range_data[attribute_column(problem, attribute, alternative)]
             spread = float(column.max() - column.min())
+            definition = "feng2024" if kind == "cost" and step_divisor == STEP_DIVISOR \
+                and tolerance_divisor == TOLERANCE_DIVISOR else "extension"
             if spread <= 0:
-                raise ValueError(f"{attribute} of {alternative} has no range in the data")
+                rows.append({"alternative": alternative, "attribute": attribute, "definition": definition,
+                             "strong": np.nan, "weak": np.nan, "n_obs": 0,
+                             "n_excluded_unavailable": int((~available[alternative].to_numpy()).sum()),
+                             "n_zero_change": 0, "step": np.nan, "tolerance": np.nan})
+                continue
             step, tolerance = spread / step_divisor, spread / tolerance_divisor
             after = predict(model, shift(data, problem, attribute, alternative, step), problem)[alternative]
             keep = available[alternative].to_numpy()
@@ -64,8 +70,7 @@ def behavioral_regularity(
             rows.append({
                 "alternative": alternative,
                 "attribute": attribute,
-                "definition": "feng2024" if kind == "cost" and step_divisor == STEP_DIVISOR
-                and tolerance_divisor == TOLERANCE_DIVISOR else "extension",
+                "definition": definition,
                 "strong": float(np.mean(delta < -tolerance)),
                 "weak": float(np.mean(delta < tolerance)),
                 "n_obs": int(keep.sum()),
@@ -79,6 +84,10 @@ def behavioral_regularity(
     flags += [
         f"no observation responds to {row['attribute']} of {row['alternative']}: the model probably does not use it"
         for row in rows if row["n_obs"] and row["n_zero_change"] == row["n_obs"]
+    ]
+    flags += [
+        f"{row['attribute']} of {row['alternative']} is constant in the data: regularity not applicable"
+        for row in rows if np.isnan(row["step"])
     ]
     if any(problem.attributes[a].kind == "time" for a in attributes):
         flags.append("time attributes are an extension; Feng et al. check own cost only")

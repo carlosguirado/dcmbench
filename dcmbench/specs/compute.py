@@ -74,14 +74,13 @@ def utilities(spec: Spec, problem: ChoiceProblem, data: Mapping[str, object], n_
     return backend.stack(columns, axis=2)
 
 
-def _logit(v, available, backend):
+def _log_logit(v, available, backend):
     v = backend.where(available, v, MASK)
     shifted = v - backend.detach(backend.amax(v, axis=2))
-    e = backend.exp(shifted)
-    return e / backend.total(e, axis=2)
+    return shifted - backend.log(backend.total(backend.exp(shifted), axis=2))
 
 
-def _nested(v, available, spec: Spec, problem: ChoiceProblem, values, backend):
+def _log_nested(v, available, spec: Spec, problem: ChoiceProblem, values, backend):
     v = backend.where(available, v, MASK)
     position = {alt: j for j, alt in enumerate(problem.alternatives)}
     groups = [(values[n.parameter], [position[a] for a in n.alternatives]) for n in spec.nests]
@@ -99,33 +98,46 @@ def _nested(v, available, spec: Spec, problem: ChoiceProblem, values, backend):
     top = backend.stack([ls[..., 0] for ls in log_sums], axis=2)
     top = top - backend.detach(backend.amax(top, axis=2))
     log_top = top - backend.log(backend.total(backend.exp(top), axis=2))
-    columns = [backend.exp(within[j][0][..., 0] + log_top[..., within[j][1]]) for j in range(len(problem.alternatives))]
-    return backend.where(available, backend.stack(columns, axis=2), 0.0)
+    return backend.stack([within[j][0][..., 0] + log_top[..., within[j][1]] for j in range(len(problem.alternatives))],
+                         axis=2)
+
+
+def log_probabilities_per_draw(spec, problem, data, n_obs, values, draws, available, backend):
+    """
+    ``(n_obs, R, J)`` log choice probabilities (R = 1 without random
+    parameters). Computed in log space, so extreme utilities never underflow
+    to log(0); unavailable alternatives get a log-probability of about ``MASK``.
+    """
+    v = utilities(spec, problem, data, n_obs, values, draws, backend)
+    if spec.model == "NL":
+        return _log_nested(v, available, spec, problem, values, backend)
+    return _log_logit(v, available, backend)
 
 
 def probabilities_per_draw(spec, problem, data, n_obs, values, draws, available, backend):
-    """``(n_obs, R, J)`` choice probabilities (R = 1 without random parameters)."""
-    v = utilities(spec, problem, data, n_obs, values, draws, backend)
-    if spec.model == "NL":
-        return _nested(v, available, spec, problem, values, backend)
-    return _logit(v, available, backend)
+    """``(n_obs, R, J)`` choice probabilities; exactly 0 for unavailable alternatives."""
+    log_p = log_probabilities_per_draw(spec, problem, data, n_obs, values, draws, available, backend)
+    return backend.where(available, backend.exp(log_p), 0.0)
 
 
-def unit_loglikelihoods(per_draw, chosen, units, n_units, panel, backend):
+def _log_mean_exp(x, backend):
+    """log of the mean over axis 1, stably."""
+    peak = backend.detach(backend.amax(x, axis=1))
+    return backend.log(backend.total(backend.exp(x - peak), axis=1)[:, 0] / x.shape[1]) + peak[:, 0]
+
+
+def unit_loglikelihoods(log_per_draw, chosen, units, n_units, panel, backend):
     """
-    Log-likelihood per unit from ``(n_obs, R, J)`` probabilities: per
-    observation, or per respondent when ``panel``.
+    Log-likelihood per unit from ``(n_obs, R, J)`` log-probabilities: per
+    observation, or per respondent when ``panel``. Entirely in log space.
     """
-    rows = backend.index(np.arange(per_draw.shape[0]))
-    p_chosen = per_draw[rows, :, backend.index(chosen)]  # (n_obs, R)
-    if per_draw.shape[1] == 1:
-        return backend.log(p_chosen[:, 0])
+    rows = backend.index(np.arange(log_per_draw.shape[0]))
+    log_chosen = log_per_draw[rows, :, backend.index(chosen)]  # (n_obs, R)
+    if log_per_draw.shape[1] == 1:
+        return log_chosen[:, 0]
     if not panel:
-        return backend.log(backend.total(p_chosen, axis=1)[:, 0] / per_draw.shape[1])
-    log_p = backend.log(p_chosen)
-    per_unit = _group_sum(log_p, units, n_units, backend)  # (n_units, R)
-    peak = backend.detach(backend.amax(per_unit, axis=1))
-    return backend.log(backend.total(backend.exp(per_unit - peak), axis=1)[:, 0] / per_draw.shape[1]) + peak[:, 0]
+        return _log_mean_exp(log_chosen, backend)
+    return _log_mean_exp(_group_sum(log_chosen, units, n_units, backend), backend)
 
 
 def _group_sum(x, units, n_units, backend):

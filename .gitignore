@@ -1,3 +1,6 @@
+# R session files
+.Rhistory
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -51,14 +54,12 @@ biogeme.toml
 
 # Model output files
 *.log
-*.png
 
 # Backup files
 *.backup
 
 # Local scratch directories
 Aug25_test/
-examples/
 
 # Pytest
 .pytest_cache/
@@ -70,3 +71,6 @@ individual_params_*.pickle
 
 # Private working materials, kept out of the repo
 paper/
+
+# Third-party code checked out locally (e.g. RUMBoost, not pip-installable)
+third_party/
