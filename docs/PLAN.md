@@ -318,6 +318,13 @@ Progress:
   - What was built: spec v2 (expression language, schema, v1 conversion), a shared `SpecModel`, the `BiogemeEstimator`, `TorchEstimator`, `SklearnFitter` and `PrecomputedModel` engines, and `BiogemeSpecFitter` rebuilt. The 0.1.x adapters, benchmarker, utilities, spec builder and dataset loader were deleted. The tutorials were ported.
   - Checks: Biogeme–PyTorch parity on the ten 0.1.x benchmark specs; known-truth recovery; and the 1.0 stack reproducing the 0.1.x baseline (`tests/test_v0_1_regression.py`).
   - Design: `docs/design/phase3-specs-engines.md`.
+- **Phase 4: done 2026-10-20.**
+  - What was built:
+    - the `TorchModuleFitter` (any PyTorch utility module, including latent-class mixtures) and `RumboostFitter` (worker process) engines;
+    - TasteNet, ResLogit, RUMBoost, latent class and sklearn examples in `examples/`, all running through `evaluate()` on the three datasets;
+    - the corrected benchmark specs in `examples/specs/`.
+  - Fidelity: TasteNet and RUMBoost reproduce their papers' reported test results.
+  - Design: `docs/design/phase4-models.md`.
 
 Ordering note: benchmark scripts can be drafted against the `v1` branch from Phase 4 on. They need 1.0.0 to be published only if results must cite a release.
 
@@ -382,3 +389,4 @@ These come from a review of the 0.1.x benchmark scripts (00–04, not in this re
 | 2026-10-20 | Private working materials kept out of the repo (`.gitignore`). |
 | 2026-10-20 | Phase 1 design accepted (`docs/design/phase1-core.md`): data kept in original units, with scaling in specs; central availability masking for engines that can't handle it; GitHub data pinned by commit (Zenodo decided at Phase 6); Biogeme becomes an optional extra; VOT Route A defined via marginal utilities; datasets named `swissmetro`, `modecanada` and `lpmc` (alias `ltds`). |
 | 2026-10-20 | The Chicago mode-choice dataset is not added to the analysis. |
+| 2026-10-20 | Corrected benchmark specs: nest parameters bounded to [1, 10]; the CUSTOM business effect uses PURPOSE == 3; CUSTOM income enters as cost interactions for the 50–100k, >100k and unknown brackets (reference: under 50k); MXL uses 1,000 Halton draws, with panel structure for Swissmetro and LPMC. |

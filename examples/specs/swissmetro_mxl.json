@@ -1,0 +1,46 @@
+{
+  "spec_version": 2,
+  "name": "swissmetro_mxl",
+  "description": "Swissmetro MXL: normally distributed time coefficient, 1,000 Halton draws per respondent (panel).",
+  "model": "MXL",
+  "alternatives": [
+    "train",
+    "sm",
+    "car"
+  ],
+  "parameters": {
+    "ASC_TRAIN": {
+      "start": 0
+    },
+    "ASC_CAR": {
+      "start": 0
+    },
+    "B_TIME": {
+      "start": 0
+    },
+    "B_COST": {
+      "start": 0
+    },
+    "B_TIME_S": {
+      "start": 1
+    }
+  },
+  "utilities": {
+    "train": "ASC_TRAIN + B_TIME_RND * TRAIN_TT / 100 + B_COST * TRAIN_CO * (GA == 0) / 100",
+    "sm": "B_TIME_RND * SM_TT / 100 + B_COST * SM_CO * (GA == 0) / 100",
+    "car": "ASC_CAR + B_TIME_RND * CAR_TT / 100 + B_COST * CAR_CO / 100"
+  },
+  "random_parameters": {
+    "B_TIME_RND": {
+      "distribution": "normal",
+      "mean": "B_TIME",
+      "spread": "B_TIME_S"
+    }
+  },
+  "draws": {
+    "number": 1000,
+    "seed": 42,
+    "type": "halton",
+    "panel": true
+  }
+}
