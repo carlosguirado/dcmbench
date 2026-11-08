@@ -332,6 +332,21 @@ Progress:
     - `examples/benchmark.py`, which runs every model family on every dataset.
   - Design: `docs/design/phase5-reporting.md`.
 
+Next steps (2026-11-08):
+- **Phase 7 before Phase 6.** Regenerate every benchmark table and figure with 1.0 under grouped 5-fold CV (on top of `examples/benchmark.py`), so the release is cut from a final, verified API.
+- **Phase 6 then covers:**
+  - packaging (pyproject only, extras, version 1.0.0);
+  - a README rewrite;
+  - user guide and "add a model / add a dataset" guides;
+  - CI;
+  - dataset licences;
+  - TestPyPI, then PyPI.
+- **Open items:**
+  - dataset licence terms;
+  - PyPI project access;
+  - optional Apollo bridge (Phase 8);
+  - multi-start checks for mixed logit estimation.
+
 Ordering note: benchmark scripts can be drafted against the `v1` branch from Phase 4 on. They need 1.0.0 to be published only if results must cite a release.
 
 ### 9.1 Phase 0 inputs: what the 0.1.x benchmark scripts tell us
