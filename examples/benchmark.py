@@ -81,13 +81,16 @@ def main():
     parser.add_argument("--models", nargs="+", help="subset of model names (default: all)")
     parser.add_argument("--protocol", choices=("cv", "holdout"), default="cv")
     parser.add_argument("--out", default="results")
+    parser.add_argument("--lpmc-sample", choices=("full", "5000"), default="full",
+                        help="LPMC: the full file (default) or the 0.1.x 5,000-trip subsample")
     args = parser.parse_args()
     out = Path(args.out)
     protocol = CrossValidation(n_splits=5) if args.protocol == "cv" else Holdout()
 
     all_cards = []
     for name in args.datasets:
-        dataset = common.benchmark_dataset(name)
+        preparation = "sample_5000" if name == "lpmc" and args.lpmc_sample == "5000" else None
+        dataset = common.benchmark_dataset(name, preparation)
         models = model_families(dataset)
         if args.models:
             models = {k: v for k, v in models.items() if k in args.models}

@@ -116,10 +116,18 @@ CHARACTERISTICS = {
 }
 
 
-def benchmark_dataset(name: str):
-    """The benchmark sample of a dataset, with the derived columns the examples use."""
+def benchmark_dataset(name: str, preparation: Optional[str] = None):
+    """
+    The benchmark sample of a dataset, with the derived columns the examples use.
+
+    ``preparation`` selects another named sample instead of the default
+    (``"benchmark"`` where the dataset defines one, else the full file), e.g.
+    ``benchmark_dataset("lpmc", "sample_5000")``.
+    """
     dataset = dcmbench.data.load(name)
-    if "benchmark" in dataset.preparations:
+    if preparation is not None:
+        dataset = dataset.prepare(preparation)
+    elif "benchmark" in dataset.preparations:
         dataset = dataset.prepare("benchmark")
     if name == "swissmetro":
         codes = {"age": ("AGE", (2, 3, 4, 5, 6)), "income": ("INCOME", (2, 3, 4)), "who": ("WHO", (2, 3)),

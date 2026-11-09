@@ -5,6 +5,10 @@ London Passenger Mode Choice (LPMC; Hillel, Elshafie and Jin, 2018).
 sets: walk, cycle, public transport and drive. All four alternatives are
 treated as available. Durations in **hours**, costs in GBP. Also known by
 its file name, ``ltds``.
+
+The benchmark sample is the full file. ``prepare("sample_5000")`` gives the
+5,000-trip random subsample used by dcmbench 0.1.x (seed 42), kept for
+comparison with earlier results.
 """
 
 from __future__ import annotations
@@ -41,8 +45,8 @@ def build(raw):
     return frame, [step]
 
 
-def benchmark_sample(dataset: Dataset) -> Dataset:
-    """Random subsample of 5,000 trips (seed 42), the DCMBench benchmark sample."""
+def sample_5000(dataset: Dataset) -> Dataset:
+    """Random subsample of 5,000 trips (seed 42): the dcmbench 0.1.x benchmark sample."""
     return dataset.subsample(5000, seed=42)
 
 
@@ -64,5 +68,5 @@ ENTRY = DatasetEntry(
     source_url="https://doi.org/10.1680/jsmic.17.00018",
     license=None,  # to be confirmed before release
     data_version=DATA_REPO_COMMIT,
-    preparations={"benchmark": benchmark_sample},
+    preparations={"sample_5000": sample_5000},
 )

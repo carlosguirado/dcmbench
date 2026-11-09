@@ -28,7 +28,7 @@ REFERENCE = {
 def test_benchmark_samples_match_reference(name):
     ds = data.load(name)
     if name != "modecanada":
-        ds = ds.prepare("benchmark")
+        ds = ds.prepare("sample_5000" if name == "lpmc" else "benchmark")
     ds.validate()
     n, shares = REFERENCE[name]
     assert len(ds) == n
@@ -37,12 +37,18 @@ def test_benchmark_samples_match_reference(name):
         assert observed[alternative] == pytest.approx(share, abs=0.005)
 
 
-def test_lpmc_benchmark_sample_selects_0_1_rows():
+def test_lpmc_full_file_is_the_benchmark_sample():
+    ds = data.load("lpmc")
+    assert "benchmark" not in ds.preparations
+    assert len(ds) == 81086
+
+
+def test_lpmc_sample_5000_selects_0_1_rows():
     """dcmbench 0.1.x sampled the full file with DataFrame.sample(n=5000, random_state=42)."""
     ds = data.load("lpmc")
     raw = pd.read_csv(data.download.fetch(data.registry.get_entry("lpmc").file))
     expected = raw.sample(n=5000, random_state=42)["trip_id"].tolist()
-    assert ds.prepare("benchmark").frame["trip_id"].tolist() == expected
+    assert ds.prepare("sample_5000").frame["trip_id"].tolist() == expected
 
 
 def test_panel_identifiers():

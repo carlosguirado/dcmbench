@@ -36,7 +36,10 @@ CLOSED_FORM = {
 
 
 def _dataset(spec_name):
+    """The 0.1.x estimation sample (LPMC: the 5,000-trip subsample)."""
     ds = data.load(spec_name.split("_")[0])
+    if ds.name == "lpmc":
+        return ds.prepare("sample_5000")
     return ds.prepare("benchmark") if "benchmark" in ds.preparations else ds
 
 
