@@ -108,5 +108,11 @@ def test_figures(data):
     assert np.all(np.diff(shares) < 0)  # car share falls as car cost rises
     figure = plot_fit_vs_prediction(list(comparison.cards().values()))
     assert len(figure.axes[0].collections) == 2
+    grouped = plot_fit_vs_prediction(list(comparison.cards().values()), groups={"MNL": "logit", "MXL": "logit"})
+    assert [t.get_text() for t in grouped.axes[0].get_legend().get_texts()][:2] == ["logit", "synthetic"]
+    cards = list(comparison.cards().values())
+    many = [dict(card, model=dict(card["model"], name=f"model {i}")) for i in range(9) for card in cards[:1]]
+    with pytest.raises(ValueError, match="colour categories"):
+        plot_fit_vs_prediction(many)
     with pytest.raises(ValueError, match="keep_vot_samples"):
         plot_vot({"MNL": evaluate(oracle(), data, name="x", analyses=("vot",))}, "train")

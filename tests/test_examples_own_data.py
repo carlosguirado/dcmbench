@@ -13,13 +13,14 @@ pytest.importorskip("torch")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples"))
 
 import latent_class  # noqa: E402
+import mnl_covariates  # noqa: E402
 import reslogit  # noqa: E402
 import tastenet  # noqa: E402
 from common import ModelInputs  # noqa: E402
 
 import dcmbench.data  # noqa: E402
 from dcmbench.evaluation import CrossValidation, Perturbation, Scenario, evaluate  # noqa: E402
-from synthetic import PROBLEM, synthetic  # noqa: E402
+from synthetic import PROBLEM, spec, synthetic  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -49,3 +50,13 @@ def test_model_inputs_scales_are_shared_across_alternatives(own_dataset):
     assert inputs.time_scale == pytest.approx(np.abs(times).mean())
     with pytest.raises(ValueError, match="not an alternative"):
         ModelInputs.from_dataset(own_dataset, reference="bus")
+
+
+def test_mnl_covariates_adds_alternative_specific_terms(own_dataset):
+    inputs = ModelInputs.from_dataset(own_dataset, reference="sm", characteristics=["AGE", "FEMALE"])
+    covariate_spec = mnl_covariates.spec(own_dataset, inputs, base=spec("MNL"))
+    added = set(covariate_spec["parameters"]) - set(spec("MNL").parameters)
+    assert added == {"B_AGE_TRAIN", "B_AGE_CAR", "B_FEMALE_TRAIN", "B_FEMALE_CAR"}
+    assert "B_AGE" not in covariate_spec["utilities"]["sm"]  # reference alternative untouched
+    assert "(AGE / " in covariate_spec["utilities"]["train"]  # non-binary covariate scaled
+    assert "B_FEMALE_TRAIN * FEMALE" in covariate_spec["utilities"]["train"]  # binary covariate unscaled

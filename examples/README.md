@@ -7,6 +7,7 @@ python examples/tastenet.py                 # --protocol cv for 5-fold responden
 python examples/reslogit.py
 python examples/latent_class.py             # --classes 3, --unconstrained
 python examples/ml_baselines.py             # logistic regression, MLP, random forest, gradient boosting
+python examples/mnl_covariates.py           # MNL with the same covariates as the hybrid and ML models
 PYTHONPATH=third_party/rumboost python examples/rumboost_benchmark.py
 ```
 
@@ -20,6 +21,7 @@ PYTHONPATH=third_party/rumboost python examples/benchmark.py --out results
 
 `benchmark.py` runs every model family on each dataset under 5-fold, respondent-grouped cross-validation. The families are:
 - the specs in `specs/`: MNL, NL, MXL, CUSTOM;
+- MNL + covariates;
 - TasteNet, ResLogit, latent class;
 - RUMBoost;
 - logistic regression, MLP, random forest, gradient boosting.
@@ -28,6 +30,18 @@ It writes to `results/`:
 - a specification card per model (JSON and Markdown);
 - a comparison table per dataset (CSV);
 - VOT distribution, car-cost sensitivity and fit-vs-prediction figures.
+
+LPMC uses the full file (81,086 trips). Add `--lpmc-sample 5000` for the 5,000-trip subsample of dcmbench 0.1.x.
+
+### Model class or information?
+
+The classical specs use only travel time, cost and constants. TasteNet, ResLogit,
+latent class, RUMBoost and the scikit-learn models also see the traveller's
+characteristics (`CHARACTERISTICS` in `common.py`: trip purpose, age, income and so
+on). [`mnl_covariates.py`](mnl_covariates.py) adds those same characteristics to
+the MNL, linearly and alternative-specifically, as an ordinary spec. The comparison
+then separates the information set from the model class: an MNL with covariates
+against TasteNet differs only in how tastes depend on the characteristics.
 
 ## On your own data
 

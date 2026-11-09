@@ -132,29 +132,81 @@ def plot_sensitivity(results: Mapping[str, EvaluationResult], alternative: str, 
     return figure
 
 
-def plot_fit_vs_prediction(cards: Sequence[dict], ax=None):
-    """In-sample vs out-of-sample log-likelihood per observation, one point per card."""
-    figure, ax = _axes(ax)
-    datasets = sorted({c["data"]["dataset"] for c in cards})
-    models = sorted({c["model"]["name"] for c in cards})
-    markers = dict(zip(models, "osD^vP*Xh<>p"))
-    for card in cards:
-        if not card["prediction"] or "avg_ll" not in card["prediction"]["metrics"]:
-            continue
-        x = card["fit"]["loglikelihood"] / card["fit"]["n_obs"]
-        y = card["prediction"]["metrics"]["avg_ll"]["estimate"]
-        color = f"C{datasets.index(card['data']['dataset'])}"
-        ax.scatter(x, y, color=color, marker=markers.get(card["model"]["name"], "o"), s=40)
-    lows = [min(c["fit"]["loglikelihood"] / c["fit"]["n_obs"], c["prediction"]["metrics"]["avg_ll"]["estimate"])
-            for c in cards if c["prediction"] and "avg_ll" in c["prediction"]["metrics"]]
-    if lows:
-        low = min(lows)
-        ax.plot([low, 0], [low, 0], color="grey", linestyle="--", linewidth=0.8, label="OOS = IS")
+# Categorical colours in fixed order (validated default palette); markers per dataset.
+CATEGORICAL = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948")
+DATASET_MARKERS = "os^Dv"
+
+
+def plot_fit_vs_prediction(cards: Sequence[dict], ax=None, groups: Optional[Mapping[str, str]] = None,
+                           label_gap: float = 0.1, dataset_labels: Optional[Mapping[str, str]] = None):
+    """
+    In-sample vs out-of-sample log-likelihood per observation, one point per card.
+
+    Shape encodes the dataset. Colour encodes ``groups[model]`` (e.g. model
+    family) when given, else the model itself; at most eight colours are used,
+    so with more models pass ``groups``. Points whose out-of-sample value falls
+    more than ``label_gap`` below the in-sample one are labelled with the model
+    name (the generalization failures the figure is about). ``dataset_labels``
+    maps dataset names to display names.
+    """
     from matplotlib.lines import Line2D
 
-    handles = [Line2D([], [], color=f"C{i}", marker="o", linestyle="", label=d) for i, d in enumerate(datasets)]
-    handles += [Line2D([], [], color="black", marker=markers[m], linestyle="", label=m) for m in models]
-    ax.legend(handles=handles, fontsize=7)
+    figure, ax = _axes(ax)
+    points = [c for c in cards if c["prediction"] and "avg_ll" in c["prediction"]["metrics"]]
+    datasets = sorted({c["data"]["dataset"] for c in points})
+    key = (lambda m: groups.get(m, m)) if groups else (lambda m: m)
+    categories = list(dict.fromkeys(key(c["model"]["name"]) for c in points))
+    if groups:
+        order = list(dict.fromkeys(groups.values()))
+        categories = [g for g in order if g in categories] + [g for g in categories if g not in order]
+    if len(categories) > len(CATEGORICAL):
+        raise ValueError(f"{len(categories)} colour categories; at most {len(CATEGORICAL)} are distinguishable. "
+                         "Pass groups={model: family} to colour by family.")
+    colors = dict(zip(categories, CATEGORICAL))
+    markers = dict(zip(datasets, DATASET_MARKERS))
+
+    shown_name = (lambda d: dataset_labels.get(d, d)) if dataset_labels else (lambda d: d)
+    values = [(c["model"]["name"], c["data"]["dataset"], c["fit"]["loglikelihood"] / c["fit"]["n_obs"],
+               c["prediction"]["metrics"]["avg_ll"]["estimate"]) for c in points]
+    if not values:
+        raise ValueError("no card has an out-of-sample avg_ll")
+    xs = np.array([v[2] for v in values])
+    ys = np.array([v[3] for v in values])
+    # Vertical floor: points far below the cloud are drawn at the edge with their value.
+    x_span = max(xs.max() - xs.min(), 1e-9)
+    floor = min(xs.min(), np.sort(ys)[min(1, len(ys) - 1)]) - 0.35 * x_span
+    labels = []
+    for (model, dataset, x, y) in values:
+        shown = max(y, floor)
+        ax.scatter(x, shown, color=colors[key(model)], marker=markers[dataset], s=46, edgecolors="white",
+                   linewidths=1.0, zorder=3)
+        if y < floor:
+            ax.annotate("", (x, floor), xytext=(x, floor + 0.04 * x_span),
+                        arrowprops=dict(arrowstyle="->", color="#52514e", linewidth=0.8))
+        if x - y > label_gap:
+            labels.append([shown, x, f"{model}, {shown_name(dataset)}" + (f" ({y:.2f})" if y < floor else "")])
+    low = min(xs.min(), floor)
+    ax.plot([low, 0], [low, 0], color="#52514e", linestyle="--", linewidth=0.8, zorder=1)
+    ax.set_ylim(floor - 0.05 * x_span, max(ys.max(), xs.max()) + 0.08 * x_span)
+    ax.set_xlim(xs.min() - 0.05 * x_span, xs.max() + 0.55 * x_span)
+    # Labels to the right of the cloud, spread vertically so they never overlap, with leader lines.
+    if labels:
+        labels.sort(key=lambda item: -item[0])
+        gap = 0.045 * (ax.get_ylim()[1] - ax.get_ylim()[0])
+        positions = []
+        for y, _, _ in labels:
+            positions.append(min(y, positions[-1] - gap) if positions else y)
+        label_x = xs.max() + 0.12 * x_span
+        for (y, x, text), ly in zip(labels, positions):
+            ax.annotate(text, (x, y), xytext=(label_x, ly), textcoords="data", fontsize=7, color="#52514e",
+                        va="center", arrowprops=dict(arrowstyle="-", color="#b5b4ae", linewidth=0.6))
+    ax.grid(color="#e6e5e1", linewidth=0.6, zorder=0)
+    ax.set_axisbelow(True)
+    handles = [Line2D([], [], color=colors[g], marker="o", linestyle="", markersize=7, label=g) for g in categories]
+    handles += [Line2D([], [], color="#52514e", marker=markers[d], linestyle="", markersize=7, label=shown_name(d))
+                for d in datasets]
+    handles.append(Line2D([], [], color="#52514e", linestyle="--", linewidth=0.8, label="out-of-sample = in-sample"))
+    ax.legend(handles=handles, fontsize=7, frameon=False, loc="upper left")
     ax.set_xlabel("in-sample log-likelihood per observation")
     ax.set_ylabel("out-of-sample log-likelihood per observation")
     return figure

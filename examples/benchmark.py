@@ -36,6 +36,7 @@ from sklearn.preprocessing import StandardScaler  # noqa: E402
 
 import common  # noqa: E402
 import latent_class  # noqa: E402
+import mnl_covariates  # noqa: E402
 import reslogit  # noqa: E402
 import rumboost_benchmark  # noqa: E402
 import tastenet  # noqa: E402
@@ -49,6 +50,14 @@ SPECS = Path(__file__).parent / "specs"
 MULTIPLIERS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
 
 
+DATASET_LABELS = {"swissmetro": "Swissmetro", "modecanada": "ModeCanada", "lpmc": "LPMC"}
+FAMILY = {
+    **{m: "discrete choice models" for m in ("MNL", "NL", "MXL", "CUSTOM", "MNL + covariates", "Latent class (2)")},
+    **{m: "hybrid (neural / boosted RUM)" for m in ("TasteNet", "ResLogit", "RUMBoost")},
+    **{m: "machine learning" for m in ("Logistic regression", "MLP", "Random forest", "Gradient boosting")},
+}
+
+
 def model_families(dataset):
     """Name -> fitter for every model family available on this dataset."""
     problem, inputs = dataset.problem, common.benchmark_inputs(dataset)
@@ -57,6 +66,7 @@ def model_families(dataset):
         path = SPECS / f"{dataset.name}_{kind}.json"
         if path.exists():
             models[kind.upper()] = TorchEstimator(load_spec(path), problem)
+    models["MNL + covariates"] = mnl_covariates.fitter(dataset, inputs)
     models["TasteNet"] = tastenet.fitter(dataset, inputs)
     models["ResLogit"] = reslogit.fitter(dataset, inputs)
     models["Latent class (2)"] = latent_class.fitter(dataset, inputs)
@@ -109,7 +119,7 @@ def main():
                                   f"regularity_strong_cost[{car}]", f"pct_change[{car}]", "n_flags"]].round(3).to_string(),
               flush=True)
     if all_cards:
-        plot_fit_vs_prediction(all_cards).savefig(out / "fit_vs_prediction.png", dpi=150, bbox_inches="tight")
+        plot_fit_vs_prediction(all_cards, groups=FAMILY, dataset_labels=DATASET_LABELS).savefig(out / "fit_vs_prediction.png", dpi=150, bbox_inches="tight")
 
 
 if __name__ == "__main__":
