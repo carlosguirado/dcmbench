@@ -108,7 +108,8 @@ def vot_from_marginal_utilities(
     if list(mu.alternatives) != list(problem.alternatives):
         raise ValueError("MarginalUtilities.alternatives must match the choice problem's alternatives")
     attrs = list(mu.attributes)
-    ratio = mu.values[..., attrs.index(time_attribute)] / mu.values[..., attrs.index(cost_attribute)]
+    with np.errstate(divide="ignore", invalid="ignore"):  # zero cost sensitivity: VOT undefined, flagged below
+        ratio = mu.values[..., attrs.index(time_attribute)] / mu.values[..., attrs.index(cost_attribute)]
     vot, currency = to_currency_per_hour(ratio, time_unit, cost_unit)
     weights = _posterior_weights(mu, data, problem) if posterior else mu.weights
 

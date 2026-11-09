@@ -9,7 +9,15 @@ DCMBench: evaluate discrete choice models from their choice probabilities.
 - ``dcmbench.reporting``: specification cards, comparison tables and figures
 """
 
+from importlib.metadata import PackageNotFoundError, version
+
 from dcmbench import data, engines, evaluation, reporting, specs, validation
 from dcmbench.problem import Attribute, ChoiceProblem
 
-__all__ = ["Attribute", "ChoiceProblem", "data", "engines", "evaluation", "reporting", "specs", "validation"]
+try:
+    __version__ = version("dcmbench")
+except PackageNotFoundError:  # running from a source tree without installation
+    __version__ = "unknown"
+
+__all__ = ["Attribute", "ChoiceProblem", "__version__", "data", "engines", "evaluation", "reporting", "specs",
+           "validation"]

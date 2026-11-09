@@ -1,223 +1,185 @@
-# Discrete Choice Model Benchmarking (DCMBench)
+# DCMBench
 
-A comprehensive Python package for benchmarking, analyzing, and validating discrete choice models for transportation mode choice analysis. DCMBench provides a unified framework for comparing different model specifications, conducting sensitivity analysis, and visualizing results.
+**Evaluate discrete choice models of any class on a common footing.**
 
-## Installation
+DCMBench takes a fitted model's **choice probabilities** and computes the rest
+itself, the same way for every model:
+- goodness of fit;
+- out-of-sample prediction under respondent-grouped cross-validation;
+- elasticities;
+- value of time (VOT) distributions;
+- policy scenarios and diversion;
+- behavioural regularity checks.
 
-You can install DCMBench using pip:
+A multinomial logit estimated in Biogeme, a mixed logit in PyTorch, a TasteNet,
+a latent class model, RUMBoost and a random forest can therefore be compared
+side by side, on the same data, folds and definitions.
 
-```bash
-pip install dcmbench
+```
+pip install dcmbench                 # core: data, evaluation, reporting, scikit-learn models
+pip install "dcmbench[biogeme]"      # + Biogeme engine
+pip install "dcmbench[torch]"        # + PyTorch engines (spec models, any nn.Module)
+pip install "dcmbench[all]"          # everything
 ```
 
-### What's new in 0.1.3
+Requires Python ≥ 3.12.
 
-- **Internal validation** (`dcmbench.validation`): k-fold cross-validation and
-  prediction-error bootstrap (OOB + 0.632) with re-estimation on each fold/draw.
-  See the [Internal Validation](#internal-validation-cross-validation-and-bootstrap)
-  section below and `CHANGELOG.md`.
-
-## What to use when
-
-| Need | Use |
-|------|-----|
-| In-sample fit / compare models on estimation data | `SimpleBenchmarker` |
-| Internal validation (k-fold CV / prediction-error bootstrap) | `dcmbench.validation` |
-| Parameter standard errors via bootstrap | Not in DCMBench (see Apollo-style tools) |
-
-## Key Features
-
-### Model Estimation and Benchmarking
-
-- **Multiple Model Types**: Support for Multinomial Logit (MNL), Nested Logit (NL), and Mixed Logit (ML) models
-- **Standardized Metrics**: Compare models using log-likelihood, rho-squared, prediction accuracy, and market share
-- **Internal validation**: K-fold cross-validation and prediction-error bootstrap (OOB + 0.632)
-- **Visualization**: Generate comparative plots showing model performance across different metrics
+## Quick start
 
 ```python
-from dcmbench.model_benchmarker import SimpleBenchmarker
-from dcmbench.datasets import fetch_data
+import dcmbench.data
+from dcmbench.engines.torch import TorchEstimator
+from dcmbench.evaluation import CrossValidation, compare
+from dcmbench.specs import load_spec
 
-# Load dataset (automatically downloads if not in local cache)
-data = fetch_data("swissmetro_dataset")
+dataset = dcmbench.data.load("swissmetro").prepare("benchmark")
 
-# Define models and run benchmark (in-sample scoring of already-fitted models)
-benchmarker = SimpleBenchmarker()
-benchmarker.register_model(adapter, "Model Name")
-results = benchmarker.run_benchmark(data, choice_column="CHOICE")
-benchmarker.print_comparison()
+mnl = load_spec({
+    "spec_version": 2, "name": "swissmetro_mnl", "model": "MNL",
+    "alternatives": ["train", "sm", "car"],
+    "parameters": {"ASC_TRAIN": {"start": 0}, "ASC_CAR": {"start": 0}, "B_TIME": {"start": 0}, "B_COST": {"start": 0}},
+    "utilities": {
+        "train": "ASC_TRAIN + B_TIME * TRAIN_TT / 100 + B_COST * TRAIN_CO * (GA == 0) / 100",
+        "sm": "B_TIME * SM_TT / 100 + B_COST * SM_CO * (GA == 0) / 100",
+        "car": "ASC_CAR + B_TIME * CAR_TT / 100 + B_COST * CAR_CO / 100",
+    },
+})
+
+comparison = compare({"MNL": TorchEstimator(mnl, dataset.problem)}, dataset, protocol=CrossValidation(n_splits=5))
+print(comparison.table()[["fit_ll", "oos_avg_ll", "oos_macro_f1", "vot_median[car]"]])
+comparison.save("results/")   # a specification card per model (JSON + Markdown) and the comparison table
 ```
 
-### Internal Validation (Cross-Validation and Bootstrap)
+Add more models to the dictionary (any engine, any class) and they are
+evaluated on identical folds.
 
-`dcmbench.validation` re-estimates the model on each training fold or bootstrap sample and scores held-out data. This is separate from in-sample `SimpleBenchmarker` metrics.
+## What you get for every model
+
+| Dimension | What DCMBench computes |
+|---|---|
+| Fit | Log-likelihood, ρ², ρ̄² (per observation for panel models, so classes are comparable) |
+| Prediction | Holdout, k-fold cross-validation grouped by respondent, or bootstrap: log-likelihood, accuracy, macro F1 / recall, Brier score |
+| Elasticities | Point elasticities (own and cross) of time and cost |
+| Value of time | **Route A** from the model's marginal utilities (population draws or individual posteriors); **Route B** from probability derivatives, for models without utilities. Every result says which route was used |
+| Policy | Scenarios (e.g. car cost × 1.5): share changes, diversion, arc elasticities; sensitivity curves |
+| Behavioural regularity | The strong and weak regularity checks of Feng et al. (2024), with any deviation from their definition flagged |
+| Reporting | A **specification card** per model (JSON with a schema, plus Markdown), comparison tables, VOT / sensitivity / fit-vs-prediction figures |
+
+Nothing falls back silently. When a quantity is not defined for a model, the
+card records it as not applicable and says why. Examples: zero cost
+sensitivity, a piecewise-constant tree model.
+
+## Models and engines
+
+| You have | Use |
+|---|---|
+| An MNL, nested logit or mixed logit written as a **spec** (JSON or dict) | `BiogemeEstimator` or `TorchEstimator`. The same spec runs on both, with identical draws |
+| Any **PyTorch module** that returns utilities or probabilities (TasteNet, ResLogit, latent class, ...) | `TorchModuleFitter`. Marginal utilities come from autograd |
+| A **scikit-learn** classifier | `SklearnFitter` |
+| A **RUMBoost** model | `RumboostFitter` (install RUMBoost from source, see below) |
+| Probabilities from **elsewhere** (Apollo, Stata, your own code) | `PrecomputedModel` |
+| **Anything else** | Implement the four-method protocol below |
+
+### Bring your own model
+
+A fitted model only needs to return probabilities:
 
 ```python
-from dcmbench.datasets import fetch_data
-from dcmbench.model_specifications import fetch_model_spec
-from dcmbench.utils.model_extensions import prepare_swissmetro_data_standard
-from dcmbench.validation import InternalValidator, fitter_from_spec
+import numpy as np
+import pandas as pd
 
-data = prepare_swissmetro_data_standard(fetch_data("swissmetro_dataset"))
-spec = fetch_model_spec("mode_choice/mnl_swissmetro.json")
-fitter = fitter_from_spec(spec, choice_column="CHOICE")
 
-validator = InternalValidator(
-    fitter,
-    choice_column="CHOICE",
-    choice_mapping={1: 1, 2: 2, 3: 3},
-    group_column="ID",       # recommended for panel / repeated choices
-    random_state=42,
+class EqualShares:
+    """Every available alternative equally likely."""
+
+    def __init__(self, problem):
+        self.problem = problem
+
+    def predict_probabilities(self, data: pd.DataFrame) -> pd.DataFrame:
+        available = self.problem.availability_matrix(data).astype(float)
+        return available.div(available.sum(axis=1), axis=0)
+
+    @property
+    def n_params(self):
+        return 0
+
+    def null_loglikelihood(self, data):
+        return float(-np.log(self.problem.availability_matrix(data).sum(axis=1)).sum())
+
+    @property
+    def converged(self):
+        return True
+```
+
+Pass a fitter (a function from training data to a fitted model) to `evaluate`
+or `compare`, e.g. `lambda train: EqualShares(dataset.problem)`. A model that
+also implements `marginal_utilities` (see `dcmbench.protocols`) gets
+Route A VOT and posterior distributions.
+
+### Bring your own data
+
+```python
+import dcmbench.data
+from dcmbench import Attribute, ChoiceProblem
+
+problem = ChoiceProblem(
+    name="my survey",
+    alternatives=("bus", "car"),
+    choice_column="choice",
+    choice_codes={1: "bus", 2: "car"},
+    attributes={
+        "time": Attribute({"bus": "bus_time", "car": "car_time"}, unit="minute", kind="time"),
+        "cost": Attribute({"bus": "bus_fare", "car": "car_cost"}, unit="USD", kind="cost"),
+    },
+    group_column="person_id",   # keeps each respondent in one fold
 )
-
-cv = validator.cross_validate(data, n_splits=5)
-print(cv.summary())
-
-boot = validator.bootstrap(data, n_bootstrap=30)
-print(boot.summary())  # includes *_oob and *_632 prediction metrics
+# my_dataset = dcmbench.data.from_frame(my_table, problem, name="my survey", citation="...")
 ```
 
-See `tutorials/internal_validation_swissmetro.py` for a runnable example.
+Units are declared once, so VOT comes out in currency per hour whatever the
+data's units.
 
-**Notes:**
-- Each fold/draw is a full estimation (can be slow for mixed logit).
-- Bootstrap here estimates **out-of-sample predictive fit**, not parameter covariance.
-- `choice_mapping` maps `{CHOICE code -> probability column name}` (identity
-  `{1: 1, 2: 2, 3: 3}` when both use the same alternative IDs).
-- **MNL/NL:** use `fitter_from_spec`. **MXL:** JSON specs cannot build real
-  `bioDraws` models — use `FunctionModelFitter` with a hand-built model
-  (see `tutorials/internal_validation_mxl_swissmetro.py`):
+## Built-in datasets
 
-  ```python
-  from dcmbench.validation import FunctionModelFitter, InternalValidator
+`dcmbench.data.load(name)` downloads a versioned copy, checks its SHA-256 and
+caches it (`DCMBENCH_DATA_DIR`, default `~/.cache/dcmbench`). Every
+preparation step is recorded on the dataset and on each card.
 
-  fitter = FunctionModelFitter(
-      build_fn=build_mxl,
-      predict_fn=predict_mxl,
-      null_loglikelihood_fn=null_loglikelihood_mxl,
-      choice_column="CHOICE",
-  )
-  validator = InternalValidator(
-      fitter,
-      choice_column="CHOICE",
-      choice_mapping={1: 1, 2: 2, 3: 3},
-      group_column="ID",
-  )
-  cv = validator.cross_validate(data, n_splits=5)
-  ```
+| Name | Data | Source and terms | Cite |
+|---|---|---|---|
+| `swissmetro` | Stated preference, intercity, 3 modes (6,768 obs. after `prepare("benchmark")`) | EPFL TRANSP-OR (Biogeme data sets), offered for research and education | Bierlaire, Axhausen & Abay (2001) |
+| `modecanada` | Intercity, Toronto–Montreal corridor, 4 modes (4,324 obs.) | R package `mlogit` (GPL-2/3), data "kindly provided by S. Koppelman" | Bhat (1995) |
+| `lpmc` | Revealed preference, London, 4 modes (81,086 trips; `prepare("sample_5000")` for the 0.1.x subsample) | EPFL TRANSP-OR (Biogeme data sets), offered for research and education | Hillel, Elshafie & Jin (2018) |
 
-  `build_fn` and `predict_fn` must use the same utility / nesting / draws
-  structure (see the MXL tutorial for a shared-helpers pattern).
+The datasets belong to their authors. DCMBench's MIT licence covers the code,
+not the data. Please cite the original source when you use a dataset.
 
-### Advanced Analysis Capabilities
+## Examples
 
-- **Sensitivity Analysis**: Evaluate how model predictions change with variations in key variables
-  - Simulate changes in travel times, costs, and other attributes
-  - Generate plots showing the evolution of market shares under different scenarios
+[`examples/`](examples/) holds dataset-agnostic implementations of hybrid
+models, written against the protocols above rather than shipped in the
+library:
+- TasteNet-MNL, ResLogit, latent class and RUMBoost, each with a check that reproduces its original paper's result;
+- scikit-learn baselines;
+- an MNL with the hybrids' covariates;
+- `benchmark.py`, which runs all of them on the three datasets.
 
-- **Individual-Level Parameters**: For Mixed Logit models, calculate and visualize:
-  - Individual-specific parameter distributions using Bayesian approaches
-  - Value of Time (VOT) distributions across the population
-  - Heterogeneity in preference structures
+[`tutorials/`](tutorials/) covers internal validation (cross-validation and
+bootstrap) with `dcmbench.validation`.
 
-- **Model Calibration**: Automatically calibrate Alternative Specific Constants (ASCs) to match observed market shares
+RUMBoost has no working PyPI release. Install it from source
+(`pip install "dcmbench[rumboost]"` pins its LightGBM, then clone
+[RUMBoost](https://github.com/big-ucl/rumboost) and put it on `PYTHONPATH`).
+DCMBench runs it in a separate worker process, so its OpenMP runtime cannot
+clash with PyTorch's.
 
-### Visualization and Reporting
+## Documentation
 
-- **Market Share Analysis**: Compare predicted vs. observed mode shares
-- **Performance Plots**: Visualize how different models perform across multiple datasets
-- **Parameter Distributions**: Plot distributions of random parameters and derived metrics like VOT
-- **Sensitivity Curves**: Show how predicted mode shares change with variations in key variables
+- [User guide](docs/guide.md): datasets, specs, engines, evaluation, cards.
+- [Adding a model](docs/adding-a-model.md) and [adding a dataset](docs/adding-a-dataset.md).
+- [Specification cards](docs/specification-cards.md).
+- [Changelog](CHANGELOG.md), including the migration notes from 0.1.x.
 
-## Supported Datasets
+## Licence
 
-- **Swissmetro** (`swissmetro_dataset`): Swiss inter-city travel mode choice
-- **London Transport** (`ltds_dataset`): London Travel Demand Survey with urban mode choices
-- **ModeCanada** (`modecanada_dataset`): Canadian inter-city travel dataset
-
-Datasets are automatically downloaded from the [dcmbench-datasets](https://github.com/carlosguirado/dcmbench-datasets) repository on first use and cached locally:
-
-```python
-from dcmbench.datasets import fetch_data
-
-# Use default cache location (~/.dcmbench/datasets)
-data = fetch_data("swissmetro_dataset")
-
-# Specify custom cache location
-data = fetch_data("swissmetro_dataset", local_cache_dir="/path/to/cache")
-
-# Get features and target separately
-X, y = fetch_data("swissmetro_dataset", return_X_y=True)
-```
-
-## Example Applications
-
-### Benchmarking Multiple Models
-
-The package includes tools to benchmark multiple model types across different datasets:
-
-```python
-# Run benchmark_all_models.py to compare models across datasets
-python benchmark_all_models.py
-```
-
-This generates comparative visualizations showing how different model types perform across datasets, plotting metrics like choice accuracy and market share accuracy against model fit.
-
-### Sensitivity Analysis
-
-Analyze how changes in key variables affect predicted mode shares:
-
-```python
-# Run sensitivity analysis on ModeCanada models
-python sensitivity_analysis.py
-```
-
-This creates plots showing the evolution of mode shares as you modify variables like:
-- Travel costs for different modes
-- Travel times
-- Service frequencies
-
-### Individual Parameter Analysis
-
-For Mixed Logit models, analyze individual-level parameters and VOT:
-
-```python
-# Generate individual parameter distributions for ModeCanada
-python plot_individual_parameters_canada.py
-```
-
-This calculates individual-specific parameters using Bayesian conditioning and produces:
-- Distributions of time and cost parameters
-- Value of Time (VOT) distributions
-- Summary statistics for preference heterogeneity
-
-## Requirements
-
-- Python >=3.8
-- NumPy >=1.19.0
-- Pandas >=1.2.0
-- Biogeme >=3.2.0
-- scikit-learn >=0.24.0
-- Matplotlib >=3.3.0
-- Requests >=2.25.0
-- SciPy (for statistical functions)
-- Seaborn (for advanced visualizations)
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Contributing
-
-We welcome contributions! Please see our contributing guidelines for details.
-
-### Adding New Datasets
-
-To add a new dataset to the DCMBench ecosystem:
-
-1. Fork the [dcmbench-datasets](https://github.com/carlosguirado/dcmbench-datasets) repository
-2. Add your dataset following the structure guidelines in the repository's CONTRIBUTING.md file
-3. Submit a pull request to the dcmbench-datasets repository
-4. Update the metadata.json file in the main DCMBench package to include your dataset information
-
-This design allows the package to remain lightweight while providing access to a growing collection of transportation mode choice datasets.
+MIT (code). See the table above for the datasets.
