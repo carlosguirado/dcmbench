@@ -5,11 +5,14 @@ name: release
 # publisher (owner carlosguirado, repository dcmbench, workflow release.yml,
 # environment testpypi / pypi).
 #
-# - Run the workflow manually ("Run workflow") to publish to TestPyPI.
+# - Push a tag testpypi-vX.Y.Z (or run the workflow manually, once it is on the
+#   default branch) to publish to TestPyPI.
 # - Publish a GitHub release (tag vX.Y.Z) to publish to PyPI.
 
 on:
   workflow_dispatch:
+  push:
+    tags: ["testpypi-v*"]
   release:
     types: [published]
 
@@ -37,7 +40,7 @@ jobs:
           path: dist/
 
   testpypi:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
     environment: testpypi
