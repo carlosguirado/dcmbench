@@ -65,8 +65,12 @@ ENTRY = DatasetEntry(
         "transport simulation: A case study of London, UK. Proceedings of the Institution of Civil "
         "Engineers – Smart Infrastructure and Construction, 171(1), 29–42."
     ),
-    source_url="https://doi.org/10.1680/jsmic.17.00018",
-    license=None,  # to be confirmed before release
+    source_url="https://biogeme.epfl.ch/#data",
+    license=(
+        "No formal licence. Published by EPFL TRANSP-OR (Biogeme data sets, lpmc.dat) as choice data "
+        "\"that can be used for research and education\"; the authors ask that any work using it cite "
+        "Hillel, Elshafie and Jin (2018)."
+    ),
     data_version=DATA_REPO_COMMIT,
     preparations={"sample_5000": sample_5000},
 )

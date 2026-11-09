@@ -55,8 +55,11 @@ ENTRY = DatasetEntry(
         "Bierlaire, M., Axhausen, K. and Abay, G. (2001). The acceptance of modal innovation: "
         "The case of Swissmetro. Swiss Transport Research Conference."
     ),
-    source_url="https://transp-or.epfl.ch/courses/dca2017/dataDescriptions/SwissmetroDescription.pdf",
-    license=None,  # to be confirmed before release
+    source_url="https://biogeme.epfl.ch/#data",
+    license=(
+        "No formal licence. Published by EPFL TRANSP-OR (Biogeme data sets, swissmetro.dat) as choice data "
+        "\"that can be used for research and education\". Cite Bierlaire, Axhausen and Abay (2001)."
+    ),
     data_version=DATA_REPO_COMMIT,
     preparations={"benchmark": benchmark_sample},
 )

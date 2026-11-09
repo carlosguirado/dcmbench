@@ -88,6 +88,9 @@ ENTRY = DatasetEntry(
         "Transportation Research Part B, 29(6), 471–483."
     ),
     source_url="https://cran.r-project.org/package=mlogit",
-    license=None,  # to be confirmed before release
+    license=(
+        "Distributed with the R package mlogit (GPL-2 | GPL-3), data \"kindly provided by S. Koppelman\". "
+        "Cite Bhat (1995); see also Koppelman and Wen (2000)."
+    ),
     data_version=DATA_REPO_COMMIT,
 )
