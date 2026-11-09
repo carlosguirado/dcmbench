@@ -200,6 +200,15 @@ def test_nondeterministic_models_are_rejected():
 
 # --- elasticities ---------------------------------------------------------------------------------
 
+def test_zero_attribute_flag_counts_available_alternatives_only():
+    data, model = _data(), LinearLogit()
+    data["CAR_CO"] = np.where(data.CAR_AV == 0, 0.0, data.CAR_CO)  # unavailable car coded as cost 0
+    assert not point_elasticities(model, data, PROBLEM, "cost").flags
+    data.loc[data.index[data.CAR_AV == 1][:3], "CAR_CO"] = 0.0
+    assert point_elasticities(model, data, PROBLEM, "cost").flags == [
+        "3 observations where car is available with cost = 0 (elasticity 0 by definition)"]
+
+
 def test_point_elasticities_match_mnl_closed_form():
     data, model = _data(), LinearLogit()
     result = point_elasticities(model, data, PROBLEM, "cost", keep_individual=True)

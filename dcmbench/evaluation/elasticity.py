@@ -42,7 +42,7 @@ def point_elasticities(
         x = data[attribute_column(problem, attribute, changed)].to_numpy(dtype=float)
         step = relative_step * np.abs(x)
         nonzero = step > 0
-        n_zero_x[changed] = int((~nonzero).sum())
+        n_zero_x[changed] = int((~nonzero & available[changed].to_numpy()).sum())  # available alternatives only
         up = predict(model, shift(data, problem, attribute, changed, step), problem).to_numpy()
         down = predict(model, shift(data, problem, attribute, changed, -step), problem).to_numpy()
         derivative = np.divide(up - down, 2 * step[:, None], out=np.zeros_like(up), where=nonzero[:, None])
@@ -73,7 +73,7 @@ def point_elasticities(
     if keep_individual:
         tables["individual"] = pd.concat(rows, ignore_index=True)
     flags = [PIECEWISE_FLAG] if getattr(model, "piecewise_constant", False) else []
-    flags += [f"{n} observations with {attribute} = 0 for {alt} (elasticity 0 by definition)"
+    flags += [f"{n} observations where {alt} is available with {attribute} = 0 (elasticity 0 by definition)"
               for alt, n in n_zero_x.items() if n]
     return AnalysisResult(
         kind="elasticities",
