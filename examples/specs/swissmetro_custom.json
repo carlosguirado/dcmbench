@@ -1,0 +1,48 @@
+{
+  "spec_version": 2,
+  "name": "swissmetro_custom",
+  "description": "Swissmetro MNL with observed heterogeneity: business (PURPOSE 3) vs commuter time sensitivity; cost sensitivity by income bracket (reference: under 50k CHF; 50-100k, over 100k, unknown); log cost; first class (train) and luggage (car).",
+  "model": "MNL",
+  "alternatives": [
+    "train",
+    "sm",
+    "car"
+  ],
+  "parameters": {
+    "ASC_TRAIN": {
+      "start": 0
+    },
+    "ASC_CAR": {
+      "start": 0
+    },
+    "B_TIME": {
+      "start": 0
+    },
+    "B_COST": {
+      "start": 0
+    },
+    "B_TIME_BUSINESS": {
+      "start": 0
+    },
+    "B_COST_INC_MID": {
+      "start": 0
+    },
+    "B_COST_INC_HIGH": {
+      "start": 0
+    },
+    "B_COST_INC_UNKNOWN": {
+      "start": 0
+    },
+    "B_LUGGAGE_CAR": {
+      "start": 0
+    },
+    "B_FIRST_TRAIN": {
+      "start": 0
+    }
+  },
+  "utilities": {
+    "train": "ASC_TRAIN + B_TIME * TRAIN_TT / 100 * (1 + B_TIME_BUSINESS * (PURPOSE == 3)) + B_COST * log(1 + TRAIN_CO * (GA == 0) / 100) * (1 + B_COST_INC_MID * (INCOME == 2) + B_COST_INC_HIGH * (INCOME == 3) + B_COST_INC_UNKNOWN * (INCOME == 4)) + B_FIRST_TRAIN * FIRST",
+    "sm": "B_TIME * SM_TT / 100 * (1 + B_TIME_BUSINESS * (PURPOSE == 3)) + B_COST * log(1 + SM_CO * (GA == 0) / 100) * (1 + B_COST_INC_MID * (INCOME == 2) + B_COST_INC_HIGH * (INCOME == 3) + B_COST_INC_UNKNOWN * (INCOME == 4))",
+    "car": "ASC_CAR + B_TIME * CAR_TT / 100 * (1 + B_TIME_BUSINESS * (PURPOSE == 3)) + B_COST * log(1 + CAR_CO / 100) * (1 + B_COST_INC_MID * (INCOME == 2) + B_COST_INC_HIGH * (INCOME == 3) + B_COST_INC_UNKNOWN * (INCOME == 4)) + B_LUGGAGE_CAR * LUGGAGE"
+  }
+}

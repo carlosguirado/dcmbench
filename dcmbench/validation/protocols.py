@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, Protocol, runtime_checkable
+from typing import Callable, Optional, Protocol, runtime_checkable
 
 import pandas as pd
 
@@ -16,8 +16,8 @@ class FittedModel(Protocol):
         ...
 
     @property
-    def n_params(self) -> int:
-        """Number of estimated parameters."""
+    def n_params(self) -> Optional[int]:
+        """Number of estimated parameters; None when not meaningful (e.g. tree ensembles)."""
         ...
 
     def null_loglikelihood(self, data: pd.DataFrame) -> float:

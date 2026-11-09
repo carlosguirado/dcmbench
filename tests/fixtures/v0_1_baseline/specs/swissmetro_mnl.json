@@ -1,0 +1,30 @@
+{
+  "spec_version": 2,
+  "name": "swissmetro_mnl",
+  "description": "0.1.x Swissmetro MNL (benchmark script 02).",
+  "model": "MNL",
+  "alternatives": [
+    "train",
+    "sm",
+    "car"
+  ],
+  "parameters": {
+    "ASC_TRAIN": {
+      "start": 0
+    },
+    "ASC_CAR": {
+      "start": 0
+    },
+    "B_TIME": {
+      "start": 0
+    },
+    "B_COST": {
+      "start": 0
+    }
+  },
+  "utilities": {
+    "train": "ASC_TRAIN + B_TIME * TRAIN_TT / 100 + B_COST * TRAIN_CO * (GA == 0) / 100",
+    "sm": "B_TIME * SM_TT / 100 + B_COST * SM_CO * (GA == 0) / 100",
+    "car": "ASC_CAR + B_TIME * CAR_TT / 100 + B_COST * CAR_CO / 100"
+  }
+}

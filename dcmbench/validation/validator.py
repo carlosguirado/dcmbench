@@ -283,7 +283,9 @@ class InternalValidator:
         ok = detail[detail["status"] == "ok"] if not detail.empty else detail
         for col in list(LIKELIHOOD_AND_PRED):
             if col in ok.columns:
-                summary_row[col] = float(np.nanmean(ok[col]))
+                with warnings.catch_warnings():  # all-missing metric -> NaN without a warning
+                    warnings.simplefilter("ignore", RuntimeWarning)
+                    summary_row[col] = float(np.nanmean(ok[col]))
 
         return ValidationResult(
             method="cv",

@@ -1,0 +1,42 @@
+{
+  "spec_version": 2,
+  "name": "swissmetro_custom",
+  "description": "0.1.x CUSTOM Swissmetro MNL, transcribed as is; corrections planned for 1.0 are in docs/PLAN.md \u00a79.1.",
+  "model": "MNL",
+  "alternatives": [
+    "train",
+    "sm",
+    "car"
+  ],
+  "parameters": {
+    "ASC_TRAIN": {
+      "start": 0
+    },
+    "ASC_CAR": {
+      "start": 0
+    },
+    "B_TIME": {
+      "start": 0
+    },
+    "B_COST": {
+      "start": 0
+    },
+    "B_TIME_BUSINESS": {
+      "start": 0
+    },
+    "B_COST_INCOME": {
+      "start": 0
+    },
+    "B_LUGGAGE_CAR": {
+      "start": 0
+    },
+    "B_FIRST_TRAIN": {
+      "start": 0
+    }
+  },
+  "utilities": {
+    "train": "ASC_TRAIN + B_TIME * TRAIN_TT / 100 * (1 + B_TIME_BUSINESS * (PURPOSE == 2)) + B_COST * log(1 + TRAIN_CO * (GA == 0) / 100) * (1 + B_COST_INCOME * (INCOME - 1) / 4) * (GA == 0) + B_FIRST_TRAIN * FIRST",
+    "sm": "B_TIME * SM_TT / 100 * (1 + B_TIME_BUSINESS * (PURPOSE == 2)) + B_COST * log(1 + SM_CO * (GA == 0) / 100) * (1 + B_COST_INCOME * (INCOME - 1) / 4) * (GA == 0)",
+    "car": "ASC_CAR + B_TIME * CAR_TT / 100 * (1 + B_TIME_BUSINESS * (PURPOSE == 2)) + B_COST * log(1 + CAR_CO / 100) * (1 + B_COST_INCOME * (INCOME - 1) / 4) + B_LUGGAGE_CAR * LUGGAGE"
+  }
+}

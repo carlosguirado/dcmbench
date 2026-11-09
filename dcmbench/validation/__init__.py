@@ -2,7 +2,7 @@
 Internal validation for discrete choice models.
 
 Provides k-fold cross-validation and prediction-error bootstrap (OOB + 0.632).
-In-sample estimation metrics remain with ``SimpleBenchmarker``.
+In-sample fit and behavioral analyses are in ``dcmbench.evaluation``.
 """
 
 from dcmbench.validation.estimators import (

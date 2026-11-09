@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+import warnings
+
 import numpy as np
 import pandas as pd
 
@@ -83,6 +85,8 @@ def summarize_numeric_columns(
     out: Dict[str, float] = {}
     for col in metric_columns:
         values = pd.to_numeric(success[col], errors="coerce")
-        out[f"{col}_mean"] = float(np.nanmean(values))
-        out[f"{col}_std"] = float(np.nanstd(values, ddof=1)) if len(values) > 1 else 0.0
+        with warnings.catch_warnings():  # an all-missing metric (e.g. n_params) gives NaN quietly
+            warnings.simplefilter("ignore", RuntimeWarning)
+            out[f"{col}_mean"] = float(np.nanmean(values))
+            out[f"{col}_std"] = float(np.nanstd(values, ddof=1)) if len(values) > 1 else 0.0
     return out

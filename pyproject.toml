@@ -1,68 +1,60 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "dcmbench"
-version = "0.1.3"
-description = "A comprehensive benchmarking framework for discrete choice models"
+version = "1.0.0"
+description = "Evaluate discrete choice models of any class (logit, mixed logit, hybrid, machine learning) on a common footing."
 readme = "README.md"
-requires-python = ">=3.8"
-license = {text = "MIT"}
-authors = [
-    {name = "Carlos Guirado", email = "your.email@example.com"},
-]
-maintainers = [
-    {name = "Carlos Guirado", email = "your.email@example.com"},
-]
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Carlos Guirado" }]
+maintainers = [{ name = "Carlos Guirado" }]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering",
-    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Mathematics",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
 ]
-keywords = ["discrete choice", "benchmarking", "transportation", "econometrics", "machine learning"]
+keywords = ["discrete choice", "choice modeling", "benchmarking", "mixed logit", "value of time",
+            "transportation", "econometrics", "machine learning"]
 dependencies = [
-    "numpy>=1.19.0",
-    "pandas>=1.2.0",
-    "scikit-learn>=0.24.0",
-    "matplotlib>=3.3.0",
-    "seaborn>=0.11.0",
-    "biogeme>=3.2.0",
-    "requests>=2.25.0",
-    "scipy>=1.6.0",
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scipy>=1.11",
+    "scikit-learn>=1.3",
+    "matplotlib>=3.8",
+    "jsonschema>=4.18",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=6.0",
-    "pytest-cov>=2.0",
-    "black>=22.0",
-    "flake8>=4.0",
-    "mypy>=0.900",
-    "sphinx>=4.0",
-    "sphinx-rtd-theme>=1.0",
-]
-pytorch = [
-    "torch>=1.10.0",
-]
+# Biogeme engine (BiogemeEstimator) and the dcmbench.validation Biogeme fitters.
+biogeme = ["biogeme>=3.3"]
+# PyTorch engines (TorchEstimator, TorchModuleFitter) and the hybrid-model examples.
+torch = ["torch>=2.2"]
+# RUMBoost engine. RUMBoost itself is installed from source (see the README); this pins its LightGBM.
+rumboost = ["lightgbm==4.5.0"]
+all = ["dcmbench[biogeme,torch,rumboost]"]
+dev = ["dcmbench[biogeme,torch]", "pytest>=8", "build>=1.2", "twine>=5"]
 
 [project.urls]
 Homepage = "https://github.com/carlosguirado/dcmbench"
-Documentation = "https://dcmbench.readthedocs.io"
-Repository = "https://github.com/carlosguirado/dcmbench.git"
-"Bug Tracker" = "https://github.com/carlosguirado/dcmbench/issues"
+Documentation = "https://github.com/carlosguirado/dcmbench/tree/main/docs"
+Repository = "https://github.com/carlosguirado/dcmbench"
+Issues = "https://github.com/carlosguirado/dcmbench/issues"
+Changelog = "https://github.com/carlosguirado/dcmbench/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
-where = ["."]
 include = ["dcmbench*"]
-exclude = ["tests*", "examples*", "docs*", "Aug25_test*", "notebook_env*", "pytorch_env*", "test_env*"]
 
 [tool.setuptools.package-data]
-dcmbench = ["datasets/metadata.json"]
+dcmbench = ["reporting/card_schema.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

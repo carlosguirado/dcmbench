@@ -8,32 +8,41 @@ example finishes quickly; increase them for research-quality runs.
 Each fold or bootstrap draw re-estimates the model (full MLE).
 """
 
-from dcmbench.datasets import fetch_data
-from dcmbench.model_specifications import fetch_model_spec
-from dcmbench.utils.model_extensions import prepare_swissmetro_data_standard
-from dcmbench.validation import InternalValidator, fitter_from_spec
+import dcmbench.data
+from dcmbench.engines.biogeme import BiogemeEstimator
+from dcmbench.specs import load_spec
+from dcmbench.validation import InternalValidator
+
+SPEC = {
+    "spec_version": 2,
+    "name": "swissmetro_mnl",
+    "model": "MNL",
+    "alternatives": ["train", "sm", "car"],
+    "parameters": {"ASC_TRAIN": {"start": 0}, "ASC_CAR": {"start": 0}, "B_TIME": {"start": 0}, "B_COST": {"start": 0}},
+    "utilities": {
+        "train": "ASC_TRAIN + B_TIME * TRAIN_TT / 100 + B_COST * TRAIN_CO * (GA == 0) / 100",
+        "sm": "B_TIME * SM_TT / 100 + B_COST * SM_CO * (GA == 0) / 100",
+        "car": "ASC_CAR + B_TIME * CAR_TT / 100 + B_COST * CAR_CO / 100",
+    },
+}
 
 
 def main():
-    # Load and prepare Swissmetro (filter PURPOSE, scale costs/times)
-    raw = fetch_data("swissmetro_dataset")
-    data = prepare_swissmetro_data_standard(raw)
+    # Commuter and business trips; times and costs are scaled inside the spec
+    dataset = dcmbench.data.load("swissmetro").prepare("benchmark")
+    data, problem = dataset.frame, dataset.problem
 
     # Optional: subsample individuals for a faster demo
     demo_ids = data["ID"].drop_duplicates().sample(n=80, random_state=0)
     data = data[data["ID"].isin(demo_ids)].copy()
     print(f"Using {len(data)} observations from {data['ID'].nunique()} individuals")
 
-    spec = fetch_model_spec("mode_choice/mnl_swissmetro.json")
-    fitter = fitter_from_spec(spec, choice_column="CHOICE")
-
-    # {CHOICE code -> probability column name}; identity when both use 1/2/3
-    choice_mapping = {1: 1, 2: 2, 3: 3}
+    fitter = BiogemeEstimator(load_spec(SPEC), problem)
 
     validator = InternalValidator(
         fitter,
-        choice_column="CHOICE",
-        choice_mapping=choice_mapping,
+        choice_column=problem.choice_column,
+        choice_mapping=problem.choice_mapping,  # {CHOICE code -> probability column}
         group_column="ID",
         random_state=42,
         verbose=True,
@@ -42,7 +51,7 @@ def main():
     # --- K-fold CV (tiny settings for the tutorial) ---
     print("\n=== Cross-validation ===")
     cv = validator.cross_validate(data, n_splits=3)
-    print(cv.folds[["fold", "status", "avg_ll", "rho_sq", "pct_correct_predictions"]])
+    print(cv.folds[["fold", "status", "avg_ll", "rho_sq", "pct_correct_predictions", "macro_f1"]])
     print("\nSummary:")
     print(cv.summary()[["avg_ll", "rho_sq", "pct_correct_predictions", "n_success"]])
 

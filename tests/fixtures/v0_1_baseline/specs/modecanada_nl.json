@@ -1,0 +1,50 @@
+{
+  "spec_version": 2,
+  "name": "modecanada_nl",
+  "description": "0.1.x ModeCanada NL with a train-bus nest, transcribed as is (nest parameter bounded to [0.001, 1]).",
+  "model": "NL",
+  "alternatives": [
+    "train",
+    "car",
+    "bus",
+    "air"
+  ],
+  "parameters": {
+    "ASC_TRAIN": {
+      "start": 0
+    },
+    "ASC_BUS": {
+      "start": 0
+    },
+    "ASC_AIR": {
+      "start": 0
+    },
+    "B_COST": {
+      "start": 0
+    },
+    "B_TIME": {
+      "start": 0
+    },
+    "MU_PUBLIC": {
+      "start": 1,
+      "lower": 0.001,
+      "upper": 1
+    }
+  },
+  "utilities": {
+    "train": "ASC_TRAIN + B_COST * train_cost + B_TIME * train_time",
+    "car": "B_COST * car_cost + B_TIME * car_time",
+    "bus": "ASC_BUS + B_COST * bus_cost + B_TIME * bus_time",
+    "air": "ASC_AIR + B_COST * air_cost + B_TIME * air_time"
+  },
+  "nests": [
+    {
+      "name": "public",
+      "parameter": "MU_PUBLIC",
+      "alternatives": [
+        "train",
+        "bus"
+      ]
+    }
+  ]
+}

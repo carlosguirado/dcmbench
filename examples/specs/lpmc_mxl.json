@@ -1,0 +1,52 @@
+{
+  "spec_version": 2,
+  "name": "lpmc_mxl",
+  "description": "LPMC MXL: negative lognormal time coefficient, 1,000 Halton draws per person (panel).",
+  "model": "MXL",
+  "alternatives": [
+    "walk",
+    "cycle",
+    "pt",
+    "drive"
+  ],
+  "parameters": {
+    "ASC_WALK": {
+      "start": 0
+    },
+    "ASC_CYCLE": {
+      "start": 0
+    },
+    "ASC_PT": {
+      "start": 0
+    },
+    "B_TIME": {
+      "start": -3
+    },
+    "B_COST": {
+      "start": 0
+    },
+    "B_TIME_S": {
+      "start": 1
+    }
+  },
+  "utilities": {
+    "walk": "ASC_WALK + B_TIME_RND * dur_walking",
+    "cycle": "ASC_CYCLE + B_TIME_RND * dur_cycling",
+    "pt": "ASC_PT + B_TIME_RND * dur_pt_total + B_COST * cost_transit",
+    "drive": "B_TIME_RND * dur_driving + B_COST * cost_driving_total"
+  },
+  "random_parameters": {
+    "B_TIME_RND": {
+      "distribution": "lognormal",
+      "mean": "B_TIME",
+      "spread": "B_TIME_S",
+      "sign": -1
+    }
+  },
+  "draws": {
+    "number": 1000,
+    "seed": 42,
+    "type": "halton",
+    "panel": true
+  }
+}

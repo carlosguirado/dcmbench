@@ -1,27 +1,23 @@
-# dcmbench/__init__.py
+"""
+DCMBench: evaluate discrete choice models from their choice probabilities.
 
-from .datasets import DatasetLoader
-from . import datasets
-from . import model_benchmarker
-from . import validation
-from .model_specifications import (
-    fetch_model_spec, 
-    build_model_from_spec, 
-    model_to_spec,
-    list_available_specs,
-    validate_model_spec
-)
-# Do not import models to avoid circular imports
-# from . import models
+- ``dcmbench.data``: versioned datasets with their choice-problem descriptions
+- ``dcmbench.specs``: spec v2 model specifications
+- ``dcmbench.engines``: Biogeme, PyTorch, scikit-learn and precomputed models
+- ``dcmbench.evaluation``: fit, prediction, elasticities, VOT, scenarios, regularity
+- ``dcmbench.validation``: cross-validation and bootstrap
+- ``dcmbench.reporting``: specification cards, comparison tables and figures
+"""
 
-__all__ = [
-    'DatasetLoader', 
-    'datasets', 
-    'model_benchmarker',
-    'validation',
-    'fetch_model_spec',
-    'build_model_from_spec',
-    'model_to_spec',
-    'list_available_specs',
-    'validate_model_spec'
-]
+from importlib.metadata import PackageNotFoundError, version
+
+from dcmbench import data, engines, evaluation, reporting, specs, validation
+from dcmbench.problem import Attribute, ChoiceProblem
+
+try:
+    __version__ = version("dcmbench")
+except PackageNotFoundError:  # running from a source tree without installation
+    __version__ = "unknown"
+
+__all__ = ["Attribute", "ChoiceProblem", "__version__", "data", "engines", "evaluation", "reporting", "specs",
+           "validation"]

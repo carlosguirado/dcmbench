@@ -1,0 +1,50 @@
+{
+  "spec_version": 2,
+  "name": "lpmc_nl",
+  "description": "0.1.x LPMC NL with a PT-drive nest, transcribed as is (nest parameter bounded to [0.001, 1]).",
+  "model": "NL",
+  "alternatives": [
+    "walk",
+    "cycle",
+    "pt",
+    "drive"
+  ],
+  "parameters": {
+    "ASC_WALK": {
+      "start": 0
+    },
+    "ASC_CYCLE": {
+      "start": 0
+    },
+    "ASC_PT": {
+      "start": 0
+    },
+    "B_TIME": {
+      "start": 0
+    },
+    "B_COST": {
+      "start": 0
+    },
+    "MU_ACTIVE": {
+      "start": 1,
+      "lower": 0.001,
+      "upper": 1
+    }
+  },
+  "utilities": {
+    "walk": "ASC_WALK + B_TIME * dur_walking",
+    "cycle": "ASC_CYCLE + B_TIME * dur_cycling",
+    "pt": "ASC_PT + B_TIME * dur_pt_total + B_COST * cost_transit",
+    "drive": "B_TIME * dur_driving + B_COST * cost_driving_total"
+  },
+  "nests": [
+    {
+      "name": "motorized",
+      "parameter": "MU_ACTIVE",
+      "alternatives": [
+        "pt",
+        "drive"
+      ]
+    }
+  ]
+}
